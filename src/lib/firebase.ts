@@ -34,32 +34,49 @@ const firebaseConfig = {
     : {})
 };
 
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.warn('Firebase configuration environment variables (VITE_FIREBASE_*) are missing.');
-}
+let app = firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null;
 
-const app = initializeApp(firebaseConfig);
-
-function createFirestoreInstance(): Firestore {
+function createFirestoreInstance(targetApp: ReturnType<typeof initializeApp>, dbId: string): Firestore {
   try {
     return initializeFirestore(
-      app,
+      targetApp,
       {
         localCache: persistentLocalCache({
           tabManager: persistentMultipleTabManager()
         })
       },
-      firebaseDatabaseId || undefined
+      dbId || undefined
     );
   } catch {
-    return getFirestore(app, firebaseDatabaseId || undefined);
+    return getFirestore(targetApp, dbId || undefined);
   }
 }
 
-export const db = createFirestoreInstance();
-export const auth = getAuth(app);
+export let db: Firestore = app ? createFirestoreInstance(app, firebaseDatabaseId) : (null as unknown as Firestore);
+export let auth = app ? getAuth(app) : (null as unknown as ReturnType<typeof getAuth>);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export async function initFirebaseConfig(): Promise<void> {
+  if (app && db && auth) return;
+  const apiBase = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+  const res = await fetch(`${apiBase}/api/firebase-config`);
+  if (!res.ok) {
+    throw new Error(`Failed to load Firebase config: HTTP ${res.status}`);
+  }
+  const remote = (await res.json()) as Record<string, string>;
+  const resolvedDbId = remote.databaseId || firebaseDatabaseId;
+  app = initializeApp({
+    apiKey: remote.apiKey,
+    authDomain: remote.authDomain,
+    projectId: remote.projectId,
+    storageBucket: remote.storageBucket,
+    messagingSenderId: remote.messagingSenderId,
+    appId: remote.appId
+  });
+  db = createFirestoreInstance(app, resolvedDbId);
+  auth = getAuth(app);
+}
 
 export enum OperationType {
   CREATE = 'create',
