@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.github
+.vscode
+.idea
+*.log
+.env*
+!.env.example
+.admin_auth.json
+.admin_members.json
+.audit_logs.json
+.users.json
+.listings_store.json
+coverage
+Dockerfile
+.dockerignore

@@ -1,0 +1,7 @@
+{
+  "name": "SHAHA ONE | شها ون",
+  "description": "منصة شاملة ومركز خدمات حقيقي لأهالي قرية شها - مركز المنصورة - محافظة الدقهلية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
