@@ -1,0 +1,357 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "Category representing main service sectors in Shaha village",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique slug ID for the category" },
+        "nameAr": { "type": "string", "description": "Arabic name of the category", "maxLength": 100 },
+        "icon": { "type": "string", "description": "Lucide icon name identifier", "maxLength": 50 },
+        "descriptionAr": { "type": "string", "description": "Brief description of services in this category", "maxLength": 300 },
+        "order": { "type": "number", "description": "Display order index" },
+        "isActive": { "type": "boolean", "description": "Whether the category is actively displayed" },
+        "subcategories": { "type": "array", "description": "List of subcategories within this section" },
+        "featured": { "type": "boolean", "description": "Whether highlighted on home page" }
+      },
+      "required": ["id", "nameAr", "icon", "order", "isActive"]
+    },
+    "Listing": {
+      "title": "Listing",
+      "description": "Professional or business or community service listing in Shaha village",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID" },
+        "categoryId": { "type": "string", "description": "Category ID", "maxLength": 50 },
+        "subcategoryId": { "type": "string", "description": "Subcategory ID or name", "maxLength": 100 },
+        "name": { "type": "string", "description": "Name of doctor, teacher, store, pharmacy, or service provider", "maxLength": 150 },
+        "titleOrSpecialty": { "type": "string", "description": "Specialty or profession title", "maxLength": 150 },
+        "phone": { "type": "string", "description": "Primary phone number for calls", "maxLength": 30 },
+        "whatsapp": { "type": "string", "description": "WhatsApp number", "maxLength": 30 },
+        "secondaryPhone": { "type": "string", "description": "Secondary contact number", "maxLength": 30 },
+        "address": { "type": "string", "description": "Detailed village address/location in Shaha", "maxLength": 300 },
+        "workingHours": { "type": "string", "description": "Working hours and open days", "maxLength": 200 },
+        "description": { "type": "string", "description": "Extended description of services and background", "maxLength": 1000 },
+        "imageUrl": { "type": "string", "description": "Image or logo URL", "maxLength": 500 },
+        "googleMapsUrl": { "type": "string", "description": "Google Maps link or coordinates description", "maxLength": 500 },
+        "isVerified": { "type": "boolean", "description": "Whether verified by directory administration" },
+        "isFeatured": { "type": "boolean", "description": "Highlighted as premium or prominent service" },
+        "deliveryAvailable": { "type": "boolean", "description": "Whether home delivery is provided" },
+        "viewsCount": { "type": "number", "description": "Count of views" },
+        "callsCount": { "type": "number", "description": "Count of phone button clicks" },
+        "rating": { "type": "number", "description": "Average rating between 1 and 5" },
+        "ratingsCount": { "type": "number", "description": "Total count of reviews" },
+        "status": { "type": "string", "description": "active or hidden", "enum": ["active", "hidden"] },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp" }
+      },
+      "required": ["categoryId", "name", "phone", "address", "status"]
+    },
+    "BloodDonor": {
+      "title": "BloodDonor",
+      "description": "Voluntary blood donor registration in Shaha village with privacy controls",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique donor ID" },
+        "name": { "type": "string", "description": "Donor name", "maxLength": 100 },
+        "bloodGroup": { "type": "string", "description": "Blood group type (A+, A-, B+, B-, AB+, AB-, O+, O-)", "enum": ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
+        "phone": { "type": "string", "description": "Contact phone number", "maxLength": 30 },
+        "area": { "type": "string", "description": "Neighborhood or zone inside Shaha", "maxLength": 150 },
+        "isAvailable": { "type": "boolean", "description": "Currently able and willing to donate" },
+        "consentGiven": { "type": "boolean", "description": "Explicit consent given to list contact for medical emergencies" },
+        "lastDonatedDate": { "type": "string", "description": "Last donation date", "maxLength": 50 },
+        "notes": { "type": "string", "description": "Relevant health notes or call preferences", "maxLength": 300 },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Update timestamp" }
+      },
+      "required": ["name", "bloodGroup", "phone", "isAvailable", "consentGiven"]
+    },
+    "BloodRequest": {
+      "title": "BloodRequest",
+      "description": "Urgent emergency blood donation request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Request ID" },
+        "patientName": { "type": "string", "description": "Patient identifier or case reference", "maxLength": 100 },
+        "bloodGroup": { "type": "string", "description": "Needed blood group", "maxLength": 10 },
+        "unitsNeeded": { "type": "number", "description": "Number of bags/units needed" },
+        "hospital": { "type": "string", "description": "Hospital name and location (e.g., Mansoura emergency hospital)", "maxLength": 200 },
+        "contactPhone": { "type": "string", "description": "Contact phone number for patient family", "maxLength": 30 },
+        "status": { "type": "string", "description": "Request status: urgent, fulfilled, closed", "enum": ["urgent", "fulfilled", "closed"] },
+        "notes": { "type": "string", "description": "Urgent details", "maxLength": 500 },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["bloodGroup", "hospital", "contactPhone", "status"]
+    },
+    "ServiceRequest": {
+      "title": "ServiceRequest",
+      "description": "Public submission to add a new number, store, doctor, or service",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Request ID" },
+        "applicantName": { "type": "string", "description": "Submitter name", "maxLength": 100 },
+        "applicantPhone": { "type": "string", "description": "Submitter contact phone", "maxLength": 30 },
+        "categoryId": { "type": "string", "description": "Target category ID", "maxLength": 50 },
+        "serviceName": { "type": "string", "description": "Name of doctor, teacher, shop, or service", "maxLength": 150 },
+        "specialty": { "type": "string", "description": "Specialty or profession", "maxLength": 150 },
+        "phone": { "type": "string", "description": "Service phone number", "maxLength": 30 },
+        "whatsapp": { "type": "string", "description": "WhatsApp number", "maxLength": 30 },
+        "address": { "type": "string", "description": "Location in Shaha", "maxLength": 300 },
+        "workingHours": { "type": "string", "description": "Working hours", "maxLength": 200 },
+        "notes": { "type": "string", "description": "Additional notes or description", "maxLength": 500 },
+        "status": { "type": "string", "description": "pending, approved, rejected", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["applicantPhone", "categoryId", "serviceName", "phone", "status"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "User report for incorrect phone, closed store, or data modification request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Report ID" },
+        "listingId": { "type": "string", "description": "Associated listing ID", "maxLength": 100 },
+        "listingName": { "type": "string", "description": "Name of listing", "maxLength": 150 },
+        "reportType": { "type": "string", "description": "wrong_number, closed, changed_owner, remove_request, other", "maxLength": 50 },
+        "details": { "type": "string", "description": "Explanation of the issue", "maxLength": 600 },
+        "contactPhone": { "type": "string", "description": "Contact info of reporter (optional)", "maxLength": 30 },
+        "status": { "type": "string", "description": "pending, resolved, dismissed", "enum": ["pending", "resolved", "dismissed"] },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["listingId", "reportType", "details", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "User review and rating for a village service or provider",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Review ID" },
+        "listingId": { "type": "string", "description": "Target listing ID", "maxLength": 100 },
+        "userName": { "type": "string", "description": "Name of reviewer", "maxLength": 100 },
+        "userId": { "type": "string", "description": "Firebase Auth UID or anonymous tag", "maxLength": 128 },
+        "rating": { "type": "number", "description": "Star rating 1 to 5" },
+        "comment": { "type": "string", "description": "Text review", "maxLength": 500 },
+        "createdAt": { "type": "string", "description": "Timestamp" }
+      },
+      "required": ["listingId", "userName", "rating", "comment"]
+    },
+    "CharityInitiative": {
+      "title": "CharityInitiative",
+      "description": "Charity work, needy family support group, and community goodwill initiatives in Shaha",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Initiative ID" },
+        "title": { "type": "string", "description": "Initiative or charity name", "maxLength": 150 },
+        "type": { "type": "string", "description": "organization, community_fund, medical_aid, clothes_food, emergency_case", "maxLength": 50 },
+        "description": { "type": "string", "description": "Scope of humanitarian activity", "maxLength": 1000 },
+        "contactPerson": { "type": "string", "description": "Trustee or representative name", "maxLength": 100 },
+        "phone": { "type": "string", "description": "Phone number for donations / inquiries", "maxLength": 30 },
+        "address": { "type": "string", "description": "Location or HQ in Shaha", "maxLength": 200 },
+        "privacyNotice": { "type": "string", "description": "Statement assuring protection of sensitive beneficiary data", "maxLength": 300 },
+        "isActive": { "type": "boolean", "description": "Active status" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["title", "type", "description", "phone", "isActive"]
+    },
+    "EmergencyNumber": {
+      "title": "EmergencyNumber",
+      "description": "Vital emergency contacts for Shaha and Mansoura district",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID" },
+        "titleAr": { "type": "string", "description": "Emergency service name (e.g. إسعاف شها، طوارئ الكهرباء)", "maxLength": 100 },
+        "phone": { "type": "string", "description": "Phone or short emergency code", "maxLength": 30 },
+        "category": { "type": "string", "description": "medical, security, utilities, local", "maxLength": 50 },
+        "descriptionAr": { "type": "string", "description": "Instructions for caller", "maxLength": 200 },
+        "order": { "type": "number", "description": "Display order" }
+      },
+      "required": ["titleAr", "phone", "category", "order"]
+    },
+    "Advertisement": {
+      "title": "Advertisement",
+      "description": "Community bulletin or commercial sponsor banner for local shops in Shaha",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Ad ID" },
+        "title": { "type": "string", "description": "Ad title or shop name", "maxLength": 120 },
+        "imageUrl": { "type": "string", "description": "Banner image URL", "maxLength": 500 },
+        "linkUrl": { "type": "string", "description": "WhatsApp or destination link", "maxLength": 500 },
+        "phone": { "type": "string", "description": "Direct contact phone", "maxLength": 30 },
+        "startDate": { "type": "string", "description": "Start date", "maxLength": 50 },
+        "endDate": { "type": "string", "description": "End date", "maxLength": 50 },
+        "isActive": { "type": "boolean", "description": "Whether active" }
+      },
+      "required": ["title", "phone", "isActive"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Administrative actions audit log for directory tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Log ID" },
+        "action": { "type": "string", "description": "Action executed", "maxLength": 100 },
+        "adminUser": { "type": "string", "description": "Admin username or email", "maxLength": 100 },
+        "target": { "type": "string", "description": "Target ID or item description", "maxLength": 200 },
+        "timestamp": { "type": "string", "description": "ISO timestamp" },
+        "details": { "type": "string", "description": "Details of the change", "maxLength": 500 }
+      },
+      "required": ["action", "adminUser", "timestamp"]
+    },
+    "VerificationBadge": {
+      "title": "VerificationBadge",
+      "description": "Dynamic official and professional verification badges for directory listings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique badge ID" },
+        "nameAr": { "type": "string", "description": "Arabic badge title", "maxLength": 100 },
+        "descriptionAr": { "type": "string", "description": "Criteria and description", "maxLength": 500 },
+        "color": { "type": "string", "description": "Visual color scheme", "enum": ["blue", "emerald", "purple", "amber", "rose", "indigo"] },
+        "icon": { "type": "string", "description": "Lucide icon identifier", "maxLength": 50 },
+        "priority": { "type": "number", "description": "Display order priority" },
+        "isActive": { "type": "boolean", "description": "Active status" },
+        "isOfficial": { "type": "boolean", "description": "Official verified badge" }
+      },
+      "required": ["id", "nameAr", "descriptionAr", "color", "icon", "isActive"]
+    },
+    "HumanitarianRequest": {
+      "title": "HumanitarianRequest",
+      "description": "Citizen humanitarian aid, medical surgeries, and emergency blood assistance cases",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Request ID" },
+        "title": { "type": "string", "description": "Case title", "maxLength": 200 },
+        "category": { "type": "string", "description": "Aid category", "maxLength": 50 },
+        "beneficiaryName": { "type": "string", "description": "Beneficiary name", "maxLength": 120 },
+        "contactPhone": { "type": "string", "description": "Beneficiary or guardian contact phone", "maxLength": 30 },
+        "areaOrVillage": { "type": "string", "description": "Location in Shaha", "maxLength": 150 },
+        "description": { "type": "string", "description": "Detailed case description", "maxLength": 1000 },
+        "amountNeeded": { "type": "number", "description": "Target financial goal in EGP" },
+        "amountRaised": { "type": "number", "description": "Collected financial amount so far" },
+        "urgency": { "type": "string", "description": "Urgency level", "enum": ["critical", "high", "normal"] },
+        "status": { "type": "string", "description": "Status of the case", "enum": ["new", "under_review", "approved", "in_progress", "completed", "rejected"] },
+        "isPubliclyVisible": { "type": "boolean", "description": "Whether approved to display in public feed" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["title", "category", "beneficiaryName", "contactPhone", "urgency", "status"]
+    },
+    "DonorEntry": {
+      "title": "DonorEntry",
+      "description": "Registered charity and mutual aid donor in Shaha village directory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique donor ID" },
+        "name": { "type": "string", "description": "Donor name or anonymous title", "maxLength": 120 },
+        "categories": { "type": "array", "description": "Types of aid offered (money, food, clothes, medicine, etc.)" },
+        "notes": { "type": "string", "description": "Help capacity and details", "maxLength": 1000 },
+        "area": { "type": "string", "description": "Neighborhood or village zone", "maxLength": 150 },
+        "contactPhone": { "type": "string", "description": "Contact phone (private or public based on method)", "maxLength": 30 },
+        "contactMethod": { "type": "string", "description": "via_admin, direct_whatsapp, direct_phone", "enum": ["via_admin", "direct_whatsapp", "direct_phone"] },
+        "privacy": { "type": "string", "description": "anonymous, public, private_admin", "enum": ["anonymous", "public", "private_admin"] },
+        "status": { "type": "string", "description": "available, paused, fulfilled", "enum": ["available", "paused", "fulfilled"] },
+        "consentGiven": { "type": "boolean", "description": "Consent confirmation" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["name", "categories", "contactMethod", "privacy", "status", "consentGiven"]
+    },
+    "AdminMessage": {
+      "title": "AdminMessage",
+      "description": "Citizen direct private inquiry or suggestion sent to administration or village sovereign owner",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Message ID" },
+        "senderName": { "type": "string", "description": "Citizen name", "maxLength": 120 },
+        "senderPhone": { "type": "string", "description": "Contact phone", "maxLength": 30 },
+        "topic": { "type": "string", "description": "inquiry, suggestion, complaint, help_request, edit_delete_data, owner_contact", "enum": ["inquiry", "suggestion", "complaint", "help_request", "edit_delete_data", "owner_contact"] },
+        "subject": { "type": "string", "description": "Message title", "maxLength": 200 },
+        "message": { "type": "string", "description": "Message details", "maxLength": 2000 },
+        "status": { "type": "string", "description": "new, under_review, replied, closed", "enum": ["new", "under_review", "replied", "closed"] },
+        "adminReply": { "type": "string", "description": "Official reply from administration", "maxLength": 2000 },
+        "repliedAt": { "type": "string", "description": "Reply timestamp" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["senderName", "senderPhone", "topic", "subject", "message", "status"]
+    },
+    "CommunityFacebookPage": {
+      "title": "CommunityFacebookPage",
+      "description": "Curated village Facebook community pages and groups for Shaha",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Page ID" },
+        "title": { "type": "string", "description": "Page title or group name", "maxLength": 150 },
+        "url": { "type": "string", "description": "Facebook URL", "maxLength": 500 },
+        "description": { "type": "string", "description": "Page mission or coverage", "maxLength": 300 },
+        "category": { "type": "string", "description": "news, services, community, youth", "maxLength": 50 },
+        "isVerified": { "type": "boolean", "description": "Whether reviewed and verified by administration" },
+        "isActive": { "type": "boolean", "description": "Whether active" },
+        "order": { "type": "number", "description": "Display order" }
+      },
+      "required": ["title", "url", "isVerified", "isActive"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Directory service categories and taxonomy"
+    },
+    "/listings/{listingId}": {
+      "schema": "Listing",
+      "description": "Directory service providers, doctors, teachers, shops and craftsmen"
+    },
+    "/blood_donors/{donorId}": {
+      "schema": "BloodDonor",
+      "description": "Voluntary blood donor records in Shaha village"
+    },
+    "/blood_requests/{requestId}": {
+      "schema": "BloodRequest",
+      "description": "Urgent emergency blood donation requests"
+    },
+    "/service_requests/{requestId}": {
+      "schema": "ServiceRequest",
+      "description": "Citizen submission requests to add new services or numbers"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "User reports about inaccurate listings or phone numbers"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Public user reviews and ratings"
+    },
+    "/charity_initiatives/{initiativeId}": {
+      "schema": "CharityInitiative",
+      "description": "Charitable organizations and humanitarian community initiatives"
+    },
+    "/emergency_numbers/{emergencyId}": {
+      "schema": "EmergencyNumber",
+      "description": "Crucial local and national emergency numbers"
+    },
+    "/advertisements/{adId}": {
+      "schema": "Advertisement",
+      "description": "Community banners and featured village announcements"
+    },
+    "/verification_badges/{badgeId}": {
+      "schema": "VerificationBadge",
+      "description": "Dynamic verification badges configured by directory administrators"
+    },
+    "/humanitarian_requests/{requestId}": {
+      "schema": "HumanitarianRequest",
+      "description": "Humanitarian aid cases and social solidarity requests"
+    },
+    "/donors_directory/{donorId}": {
+      "schema": "DonorEntry",
+      "description": "Charity and mutual aid registered donors"
+    },
+    "/admin_messages/{messageId}": {
+      "schema": "AdminMessage",
+      "description": "Direct confidential messages and inquiries to directory admins"
+    },
+    "/community_facebook_pages/{pageId}": {
+      "schema": "CommunityFacebookPage",
+      "description": "Approved and curated Shaha Facebook community pages"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Audit trails for administrative operations"
+    }
+  }
+}
