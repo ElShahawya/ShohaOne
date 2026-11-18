@@ -1,82 +1,104 @@
-import React, { useState, useEffect } from 'react';
+// DevMeDoAnDrOiD
+import React, { useEffect, useState } from 'react';
 import {
   FileText,
   Save,
   RotateCcw,
-  Sparkles,
   CheckCircle2,
   Globe,
   PhoneCall,
   Layout,
-  MessageSquare
+  MessageSquare,
+  MapPin,
+  CloudCheck
 } from 'lucide-react';
 import { useDirectory } from '../../context/DirectoryContext';
+import { apiUrl, fetchWithTimeout } from '../../lib/net';
+import {
+  DEFAULT_SITE_TEXTS,
+  PlatformSiteTexts,
+  getStoredSiteTexts,
+  persistSiteTextsLocally,
+  syncSiteTextsFromServer
+} from '../../hooks/useSiteTexts';
+
+export type { PlatformSiteTexts };
+export { getStoredSiteTexts };
 
 interface SiteTextsAdminProps {
   onSuccessToast?: (msg: string) => void;
 }
 
-export interface PlatformSiteTexts {
-  siteTitle: string;
-  tagline: string;
-  heroHeadline: string;
-  heroSubheadline: string;
-  footerDescription: string;
-  emergencyAlertText: string;
-  addServiceNotice: string;
-  contactWhatsApp: string;
-  contactPhone: string;
-}
-
-const DEFAULT_SITE_TEXTS: PlatformSiteTexts = {
-  siteTitle: 'SHAHA ONE | شها ون',
-  tagline: 'شها كلها.. أقرب وأسهل في مكان واحد',
-  heroHeadline: 'دليلك الرقمي الشامل لجميع أرقام وخدمات شها',
-  heroSubheadline: 'منصة موحدة تجعلك تتواصل مع الأطباء والصيادلة والحرفيين والمحلات والمؤسسات الخدمية في قرية شها بضغطة زر.',
-  footerDescription: 'منصتك الرقمية المتكاملة لخدمات أهالي شها - مركز المنصورة - محافظة الدقهلية. نهدف لتسهيل الوصول للأرقام والخدمات اليومية والمساعدات المجتمعية.',
-  emergencyAlertText: 'طوارئ شها: الإسعاف 123 - المطافئ 180 - نجدة الشرطة 122 - طوارئ الكهرباء 121',
-  addServiceNotice: 'يمكنك طلب إضافة رقمك أو محلك التجاري أو عيادتك مجاناً وسيقوم فريق المنصة بمراجعته ونشره خلال ساعات قليلة.',
-  contactWhatsApp: '01012345678',
-  contactPhone: '01012345678'
-};
-
-export function getStoredSiteTexts(): PlatformSiteTexts {
-  try {
-    const saved = localStorage.getItem('shaha_site_texts');
-    if (saved) {
-      return { ...DEFAULT_SITE_TEXTS, ...JSON.parse(saved) };
-    }
-  } catch {}
-  return DEFAULT_SITE_TEXTS;
-}
-
 export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }) => {
-  const { logAdminAction } = useDirectory();
+  const { logAdminAction, adminSession } = useDirectory();
   const [texts, setTexts] = useState<PlatformSiteTexts>(() => getStoredSiteTexts());
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'cloud' | 'local' | null>(null);
+
+  useEffect(() => {
+    void syncSiteTextsFromServer().then((remote) => {
+      if (remote) setTexts(remote);
+    });
+  }, []);
+
+  const persistToCloudAndLocal = async (nextTexts: PlatformSiteTexts): Promise<'cloud' | 'local'> => {
+    persistSiteTextsLocally(nextTexts);
+    if (adminSession?.token) {
+      try {
+        const res = await fetchWithTimeout(
+          apiUrl('/api/site-texts'),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${adminSession.token}`
+            },
+            body: JSON.stringify({ texts: nextTexts })
+          },
+          7000
+        );
+        if (res.ok) {
+          return 'cloud';
+        }
+      } catch {
+        // Offline or network failure falls back to local persistence
+      }
+    }
+    return 'local';
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      localStorage.setItem('shaha_site_texts', JSON.stringify(texts));
-      window.dispatchEvent(new Event('shaha_site_texts_updated'));
-      await logAdminAction('UPDATE_SITE_TEXTS', 'محتوى المنصة', 'تعديل وتحديث النصوص العامة والعناوين');
+      const mode = await persistToCloudAndLocal(texts);
+      setSyncStatus(mode);
+      await logAdminAction(
+        'UPDATE_SITE_TEXTS',
+        'محتوى المنصة وعن قرية شها',
+        'تعديل وتحديث النصوص العامة وقسم عن قرية شها'
+      );
       setIsSaving(false);
       setIsSaved(true);
-      if (onSuccessToast) onSuccessToast('تم حفظ النصوص وتحديث المنصة بنجاح!');
-      setTimeout(() => setIsSaved(false), 3000);
+      if (onSuccessToast) {
+        onSuccessToast(
+          mode === 'cloud'
+            ? 'تم حفظ النصوص ومزامنتها لجميع المستخدمين بنجاح!'
+            : 'تم حفظ النصوص محلياً بنجاح!'
+        );
+      }
+      setTimeout(() => setIsSaved(false), 3500);
     } catch {
       setIsSaving(false);
     }
   };
 
-  const handleReset = () => {
-    if (window.confirm('هل أنت متاكد من استعادة النصوص الافتراضية للمنصة؟')) {
+  const handleReset = async () => {
+    if (window.confirm('هل أنت متأكد من استعادة النصوص الافتراضية للمنصة؟')) {
       setTexts(DEFAULT_SITE_TEXTS);
-      localStorage.setItem('shaha_site_texts', JSON.stringify(DEFAULT_SITE_TEXTS));
-      window.dispatchEvent(new Event('shaha_site_texts_updated'));
+      const mode = await persistToCloudAndLocal(DEFAULT_SITE_TEXTS);
+      setSyncStatus(mode);
       if (onSuccessToast) onSuccessToast('تم استعادة النصوص الافتراضية');
     }
   };
@@ -89,9 +111,11 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
             <FileText className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">إدارة المحتوى والنصوص العامة</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              إدارة المحتوى والنصوص العامة
+            </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              التحكم الكامل في عناوين ورسائل وتنويهات موقع SHAHA ONE
+              التحكم الكامل في نصوص «عن قرية شها» بالأسفل وعناوين ورسائل موقع SHAHA ONE
             </p>
           </div>
         </div>
@@ -124,7 +148,7 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
               <input
                 type="text"
                 value={texts.siteTitle}
-                onChange={e => setTexts(prev => ({ ...prev, siteTitle: e.target.value }))}
+                onChange={(e) => setTexts((prev) => ({ ...prev, siteTitle: e.target.value }))}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -136,10 +160,106 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
               <input
                 type="text"
                 value={texts.tagline}
-                onChange={e => setTexts(prev => ({ ...prev, tagline: e.target.value }))}
+                onChange={(e) => setTexts((prev) => ({ ...prev, tagline: e.target.value }))}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
               />
             </div>
+          </div>
+        </div>
+
+        {/* About Shaha Village (Footer & About Page) */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-emerald-200/80 dark:border-emerald-900/50 space-y-4 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <MapPin className="w-4 h-4 text-emerald-500" />
+            <span>قسم «عن قرية شها» (التذييل السفلي وصفحة التعريف)</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                عنوان عمود عن قرية شها بالأسفل
+              </label>
+              <input
+                type="text"
+                value={texts.footerAboutTitle}
+                onChange={(e) =>
+                  setTexts((prev) => ({ ...prev, footerAboutTitle: e.target.value }))
+                }
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                سطر أرقام الطوارئ بالأسفل
+              </label>
+              <input
+                type="text"
+                value={texts.footerAboutEmergency}
+                onChange={(e) =>
+                  setTexts((prev) => ({ ...prev, footerAboutEmergency: e.target.value }))
+                }
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                الموقع والعنوان بالأسفل
+              </label>
+              <input
+                type="text"
+                value={texts.footerAboutLocation}
+                onChange={(e) =>
+                  setTexts((prev) => ({ ...prev, footerAboutLocation: e.target.value }))
+                }
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                سطر التواصل بالأسفل
+              </label>
+              <input
+                type="text"
+                value={texts.footerAboutEmail}
+                onChange={(e) =>
+                  setTexts((prev) => ({ ...prev, footerAboutEmail: e.target.value }))
+                }
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              عنوان نبذة القرية في صفحة «عن شها ون»
+            </label>
+            <input
+              type="text"
+              value={texts.aboutVillageTitle}
+              onChange={(e) =>
+                setTexts((prev) => ({ ...prev, aboutVillageTitle: e.target.value }))
+              }
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              نص نبذة عن قرية شها
+            </label>
+            <textarea
+              rows={3}
+              value={texts.aboutVillageText}
+              onChange={(e) =>
+                setTexts((prev) => ({ ...prev, aboutVillageText: e.target.value }))
+              }
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
+            />
           </div>
         </div>
 
@@ -157,7 +277,7 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
             <input
               type="text"
               value={texts.heroHeadline}
-              onChange={e => setTexts(prev => ({ ...prev, heroHeadline: e.target.value }))}
+              onChange={(e) => setTexts((prev) => ({ ...prev, heroHeadline: e.target.value }))}
               className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
             />
           </div>
@@ -169,7 +289,9 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
             <textarea
               rows={2}
               value={texts.heroSubheadline}
-              onChange={e => setTexts(prev => ({ ...prev, heroSubheadline: e.target.value }))}
+              onChange={(e) =>
+                setTexts((prev) => ({ ...prev, heroSubheadline: e.target.value }))
+              }
               className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
             />
           </div>
@@ -189,7 +311,9 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
             <input
               type="text"
               value={texts.emergencyAlertText}
-              onChange={e => setTexts(prev => ({ ...prev, emergencyAlertText: e.target.value }))}
+              onChange={(e) =>
+                setTexts((prev) => ({ ...prev, emergencyAlertText: e.target.value }))
+              }
               className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-red-500"
             />
           </div>
@@ -201,7 +325,9 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
             <textarea
               rows={2}
               value={texts.addServiceNotice}
-              onChange={e => setTexts(prev => ({ ...prev, addServiceNotice: e.target.value }))}
+              onChange={(e) =>
+                setTexts((prev) => ({ ...prev, addServiceNotice: e.target.value }))
+              }
               className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500"
             />
           </div>
@@ -211,7 +337,7 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
         <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
             <MessageSquare className="w-4 h-4 text-purple-500" />
-            <span>حقوق ونصوص التذييل (Footer)</span>
+            <span>وصف المنصة في التذييل السفلي (Footer)</span>
           </h3>
 
           <div>
@@ -221,31 +347,43 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
             <textarea
               rows={3}
               value={texts.footerDescription}
-              onChange={e => setTexts(prev => ({ ...prev, footerDescription: e.target.value }))}
+              onChange={(e) =>
+                setTexts((prev) => ({ ...prev, footerDescription: e.target.value }))
+              }
               className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-purple-500"
             />
           </div>
         </div>
 
         {/* Submit Actions */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           {isSaved && (
             <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-2 rounded-xl">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>تم حفظ التعديلات بنجاح</span>
+              {syncStatus === 'cloud' ? (
+                <CloudCheck className="w-4 h-4" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              <span>
+                {syncStatus === 'cloud'
+                  ? 'تم الحفظ والمزامنة السحابية للجميع'
+                  : 'تم حفظ التعديلات محلياً'}
+              </span>
             </span>
           )}
 
           <button
             type="submit"
             disabled={isSaving}
-            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition-all cursor-pointer"
+            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition-all cursor-pointer disabled:opacity-60"
           >
             <Save className="w-4 h-4" />
-            <span>{isSaving ? 'جاري الحفظ...' : 'حفظ كافة التغييرات'}</span>
+            <span>{isSaving ? 'جاري الحفظ والمزامنة...' : 'حفظ كافة التغييرات'}</span>
           </button>
         </div>
       </form>
     </div>
   );
 };
+
+// Copyright (c) 2026 MeDoAnDrOiD. All Rights Reserved.
