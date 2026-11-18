@@ -58,6 +58,7 @@ import {
   FileText
 } from 'lucide-react';
 import { useDirectory } from '../../context/DirectoryContext';
+import { apiUrl } from '../../lib/net';
 import { ListingCard } from '../listings/ListingCard';
 import { NewsAdmin } from './NewsAdmin';
 import { SiteTextsAdmin } from './SiteTextsAdmin';
@@ -201,22 +202,37 @@ function optimizeImageFile(file: File, maxDimension = 800): Promise<string> {
 }
 
 const PERMISSION_CONFIG: { id: AdminPermission; label: string; desc: string }[] = [
+  { id: 'manage_overview', label: 'لوحة الإحصائيات والقيادة', desc: 'عرض الإحصائيات العامة وأرقام الزيارات والمكالمات' },
   { id: 'manage_listings', label: 'إدارة الأرقام والخدمات', desc: 'إضافة وتعديل وحذف جهات الاتصال والأماكن' },
   { id: 'manage_categories', label: 'إدارة الأقسام', desc: 'تعديل وترتيب الأقسام الـ 15 والتصنيفات الفرعية' },
   { id: 'manage_ads', label: 'إدارة الإعلانات والعروض', desc: 'إضافة وتعديل وإخفاء وتحديد مواعيد الإعلانات والبانرات' },
-  { id: 'manage_requests', label: 'طلبات الإضافة', desc: 'مراجعة وقبول أو رفض طلبات إضافة الأرقام الجديدة' },
+  { id: 'manage_news', label: 'أخبار قرية شها', desc: 'نشر وتعديل وحذف أخبار وإعلانات القرية' },
+  { id: 'manage_requests', label: 'طلبات الإضافة والموافقة', desc: 'مراجعة وقبول أو رفض طلبات إضافة الأرقام الجديدة' },
+  { id: 'manage_claims', label: 'طلبات الملكية', desc: 'مراجعة واعتماد طلبات توثيق ملكية الخدمات' },
   { id: 'manage_reports', label: 'البلاغات والشكاوى', desc: 'معالجة بلاغات الأرقام الخاطئة والمغلقة' },
-  { id: 'manage_blood', label: 'بنك الدم', desc: 'إدارة متبرعي ونداءات بنك الدم بشها' },
-  { id: 'manage_charity', label: 'المبادرات الخيرية', desc: 'إدارة مبادرات وحملات تواصل الخيرية' },
-  { id: 'manage_emergency', label: 'أرقام الطوارئ', desc: 'تعديل أرقام الإسعاف والشرطة والنجدة' },
-  { id: 'manage_badges', label: 'علامات التوثيق', desc: 'إنشاء وتخصيص علامات التوثيق ومنحها للأرقام والخدمات' },
-  { id: 'manage_aid', label: 'المساعدات الإنسانية', desc: 'مراجعة طلبات المساعدة والحالات الإنسانية وبنك الدم' },
   { id: 'manage_reviews', label: 'مراجعة التقييمات', desc: 'اعتماد أو رفض تقييمات وآراء أهالي شها ومنع التقييمات الوهمية' },
   { id: 'manage_messages', label: 'صندوق رسائل المواطنين', desc: 'قراءة والرد على استفسارات وشكاوى ومراسلات الأهالي' },
+  { id: 'manage_suggestions', label: 'اقتراحات الأهالي', desc: 'مراجعة واعتماد مقترحات تطوير المنصة' },
+  { id: 'manage_blood', label: 'بنك الدم', desc: 'إدارة متبرعي ونداءات بنك الدم بشها' },
+  { id: 'manage_charity', label: 'المبادرات الخيرية', desc: 'إدارة مبادرات وحملات تواصل الخيرية' },
+  { id: 'manage_aid', label: 'المساعدات الإنسانية', desc: 'مراجعة طلبات المساعدة والحالات الإنسانية' },
+  { id: 'manage_emergency', label: 'أرقام وجداول الطوارئ', desc: 'تعديل أرقام الإسعاف والشرطة وجداول طوارئ المنصورة' },
+  { id: 'manage_badges', label: 'علامات التوثيق', desc: 'إنشاء وتخصيص علامات التوثيق ومنحها للأرقام والخدمات' },
+  { id: 'manage_quality', label: 'جودة البيانات والمكرر', desc: 'كشف السجلات المكررة ومراقبة اكتمال البيانات' },
+  { id: 'manage_import', label: 'استيراد CSV', desc: 'استيراد بيانات الخدمات بكميات كبيرة' },
+  { id: 'manage_texts', label: 'المحتوى والنصوص', desc: 'تعديل النصوص الثابتة وإعدادات الواجهة' },
   { id: 'manage_community_pages', label: 'صفحات شها على فيسبوك', desc: 'إضافة وتعديل وتوثيق الروابط والصفحات المجتمعية' },
   { id: 'manage_users', label: 'إدارة المستخدمين', desc: 'مراجعة المستخدمين وحظر الحسابات المخالفة' },
+  { id: 'manage_audit', label: 'سجل العمليات (Audit)', desc: 'مراقبة سجل النشاط والأحداث الأمنية' },
   { id: 'manage_admins', label: 'إدارة المشرفين (خاص بالأونر)', desc: 'تعيين المشرفين وتوزيع الصلاحيات' },
-  { id: 'manage_settings', label: 'إعدادات النظام', desc: 'النسخ الاحتياطي والمزامنة السحابية وكلمة المرور' }
+  { id: 'manage_settings', label: 'الإعدادات والأمان', desc: 'تقرير الأمان والجلسات والنسخ الاحتياطي وكلمة المرور' }
+];
+
+const ROLE_PRESETS: { id: string; label: string; permissions: AdminPermission[] }[] = [
+  { id: 'requests_only', label: 'مراجع طلبات فقط', permissions: ['manage_requests'] },
+  { id: 'content_editor', label: 'محرر أخبار وإعلانات', permissions: ['manage_news', 'manage_ads'] },
+  { id: 'directory_mod', label: 'مشرف الدليل والبلاغات', permissions: ['manage_listings', 'manage_categories', 'manage_requests', 'manage_reports', 'manage_reviews'] },
+  { id: 'community_mod', label: 'مشرف الطوارئ والخيرية وبنك الدم', permissions: ['manage_emergency', 'manage_blood', 'manage_charity', 'manage_aid'] }
 ];
 
 interface AdminDashboardProps {
@@ -337,6 +353,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [bulkRequestConfirm, setBulkRequestConfirm] = useState<{ type: 'approve' | 'reject'; ids: string[] } | null>(null);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
+  const [securityStatus, setSecurityStatus] = useState<any>(null);
+  const [activeSessionsList, setActiveSessionsList] = useState<any[]>([]);
+  const [isLoadingSecurity, setIsLoadingSecurity] = useState(false);
+
   // Admin Management State
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
   const [editingAdminMember, setEditingAdminMember] = useState<AdminMember | null>(null);
@@ -354,12 +374,98 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return adminSession?.permissions?.includes(perm) ?? false;
   };
 
-  // Fetch users & admins on tab change
+  const loadSecurityStatus = async () => {
+    if (!adminSession?.token || !hasPermission('manage_settings')) return;
+    setIsLoadingSecurity(true);
+    try {
+      const [secRes, sessRes] = await Promise.all([
+        fetch(apiUrl('/api/admin/security-status'), {
+          headers: { Authorization: `Bearer ${adminSession.token}` }
+        }),
+        fetch(apiUrl('/api/admin/sessions'), {
+          headers: { Authorization: `Bearer ${adminSession.token}` }
+        })
+      ]);
+      if (secRes.ok) {
+        setSecurityStatus(await secRes.json());
+      }
+      if (sessRes.ok) {
+        const d = await sessRes.json();
+        setActiveSessionsList(Array.isArray(d.sessions) ? d.sessions : []);
+      }
+    } catch {
+      // keep existing state
+    } finally {
+      setIsLoadingSecurity(false);
+    }
+  };
+
+  const handleRevokeSession = async (sessionId: string) => {
+    if (!adminSession?.token || !isOwner) return;
+    if (!confirm('هل تريد تأكيد إنهاء هذه الجلسة؟')) return;
+    try {
+      const res = await fetch(apiUrl('/api/admin/sessions/revoke'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminSession.token}`
+        },
+        body: JSON.stringify({ sessionId })
+      });
+      if (res.ok) {
+        onSuccessToast('تم إنهاء الجلسة بنجاح');
+        await loadSecurityStatus();
+      }
+    } catch {}
+  };
+
+  const allowedTabIds = React.useMemo(() => {
+    const map: { id: string; ok: boolean }[] = [
+      { id: 'overview', ok: hasPermission('manage_overview') },
+      { id: 'listings', ok: hasPermission('manage_listings') },
+      { id: 'categories', ok: hasPermission('manage_categories') },
+      { id: 'ads', ok: hasPermission('manage_ads') },
+      { id: 'news', ok: hasPermission('manage_news') },
+      { id: 'badges', ok: hasPermission('manage_badges') },
+      { id: 'texts', ok: hasPermission('manage_texts') },
+      { id: 'requests', ok: hasPermission('manage_requests') },
+      { id: 'claims', ok: hasPermission('manage_claims') },
+      { id: 'reports', ok: hasPermission('manage_reports') },
+      { id: 'reviews', ok: hasPermission('manage_reviews') },
+      { id: 'messages', ok: hasPermission('manage_messages') },
+      { id: 'suggestions', ok: hasPermission('manage_suggestions') },
+      { id: 'quality', ok: hasPermission('manage_quality') },
+      { id: 'import', ok: hasPermission('manage_import') },
+      { id: 'emergency', ok: hasPermission('manage_emergency') },
+      { id: 'mansoura_schedule', ok: hasPermission('manage_emergency') },
+      { id: 'blood', ok: hasPermission('manage_blood') },
+      { id: 'charity', ok: hasPermission('manage_charity') },
+      { id: 'aid', ok: hasPermission('manage_aid') },
+      { id: 'community_pages', ok: isOwner || hasPermission('manage_community_pages') },
+      { id: 'users', ok: hasPermission('manage_users') },
+      { id: 'admins', ok: isOwner },
+      { id: 'flags', ok: isOwner },
+      { id: 'platform_credits', ok: isOwner },
+      { id: 'audit', ok: hasPermission('manage_audit') || hasPermission('manage_settings') },
+      { id: 'settings', ok: hasPermission('manage_settings') }
+    ];
+    return map.filter(m => m.ok).map(m => m.id);
+  }, [isOwner, adminSession?.role, adminSession?.permissions]);
+
   useEffect(() => {
-    if (activeAdminTab === 'users') {
+    if (allowedTabIds.length > 0 && !allowedTabIds.includes(activeAdminTab)) {
+      setActiveAdminTab(allowedTabIds[0] as any);
+    }
+  }, [allowedTabIds, activeAdminTab]);
+
+  // Fetch users, admins, or security status on tab change (strictly gated)
+  useEffect(() => {
+    if (activeAdminTab === 'users' && hasPermission('manage_users')) {
       fetchUsers(userSearch, userStatusFilter !== 'all' ? userStatusFilter : undefined);
-    } else if (activeAdminTab === 'admins') {
+    } else if (activeAdminTab === 'admins' && isOwner) {
       fetchAdminMembers();
+    } else if (activeAdminTab === 'settings' && hasPermission('manage_settings')) {
+      void loadSecurityStatus();
     }
   }, [activeAdminTab, userSearch, userStatusFilter]);
 
@@ -754,16 +860,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <HorizontalScrollStrip contentClassName="pb-1 pt-1" ariaLabel="أقسام لوحة التحكم">
             <div className="flex items-center gap-2 w-max">
               {[
-                { id: 'overview', label: 'الإحصائيات والقيادة', icon: BarChart3, group: 'all' },
-                { id: 'listings', label: `الأرقام والخدمات (${listings.length})`, icon: ListPlus, group: 'directory' },
-                { id: 'categories', label: `الأقسام (${categories.length})`, icon: FolderTree, group: 'directory' },
+                { id: 'overview', label: 'الإحصائيات والقيادة', icon: BarChart3, permission: 'manage_overview' as AdminPermission, group: 'all' },
+                { id: 'listings', label: `الأرقام والخدمات (${listings.length})`, icon: ListPlus, permission: 'manage_listings' as AdminPermission, group: 'directory' },
+                { id: 'categories', label: `الأقسام (${categories.length})`, icon: FolderTree, permission: 'manage_categories' as AdminPermission, group: 'directory' },
                 { id: 'ads', label: `الإعلانات والبانرات (${advertisements.length})`, icon: Megaphone, highlight: true, permission: 'manage_ads' as AdminPermission, group: 'directory' },
                 { id: 'news', label: `أخبار شها (${villageNews.length})`, icon: Newspaper, highlight: true, permission: 'manage_news' as AdminPermission, group: 'directory' },
                 { id: 'badges', label: `علامات التوثيق (${verificationBadges.length})`, icon: ShieldCheck, highlight: true, permission: 'manage_badges' as AdminPermission, group: 'directory' },
-                { id: 'texts', label: 'المحتوى والنصوص', icon: FileText, highlight: true, group: 'directory' },
-                { id: 'requests', label: `طلبات الإضافة (${pendingRequests.length})`, icon: Inbox, badge: pendingRequests.length, group: 'moderation' },
+                { id: 'texts', label: 'المحتوى والنصوص', icon: FileText, highlight: true, permission: 'manage_texts' as AdminPermission, group: 'directory' },
+                { id: 'requests', label: `طلبات الإضافة (${pendingRequests.length})`, icon: Inbox, badge: pendingRequests.length, permission: 'manage_requests' as AdminPermission, group: 'moderation' },
                 { id: 'claims', label: `طلبات الملكية (${pendingClaimsCount})`, icon: ShieldCheck, highlight: true, permission: 'manage_claims' as AdminPermission, badge: pendingClaimsCount, group: 'moderation' },
-                { id: 'reports', label: `البلاغات (${pendingReports.length})`, icon: AlertTriangle, badge: pendingReports.length, group: 'moderation' },
+                { id: 'reports', label: `البلاغات (${pendingReports.length})`, icon: AlertTriangle, badge: pendingReports.length, permission: 'manage_reports' as AdminPermission, group: 'moderation' },
                 { id: 'reviews', label: `التقييمات (${pendingReviewsCount})`, icon: Star, highlight: true, permission: 'manage_reviews' as AdminPermission, badge: pendingReviewsCount, group: 'moderation' },
                 { id: 'messages', label: `رسائل المواطنين (${adminMessages.length})`, icon: Mail, highlight: true, permission: 'manage_messages' as AdminPermission, badge: newMessagesCount, group: 'moderation' },
                 { id: 'suggestions', label: `اقتراحات الأهالي (${pendingSuggestionsCount})`, icon: Lightbulb, highlight: true, permission: 'manage_suggestions' as AdminPermission, badge: pendingSuggestionsCount, group: 'moderation' },
@@ -771,16 +877,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 { id: 'import', label: 'استيراد CSV', icon: FileSpreadsheet, highlight: true, permission: 'manage_import' as AdminPermission, group: 'directory' },
                 { id: 'emergency', label: `أرقام الطوارئ (${emergencyNumbers.length})`, icon: PhoneCall, highlight: true, permission: 'manage_emergency' as AdminPermission, group: 'community' },
                 { id: 'mansoura_schedule', label: 'جدول طوارئ المنصورة', icon: Calendar, highlight: true, permission: 'manage_emergency' as AdminPermission, group: 'community' },
-                { id: 'blood', label: `بنك الدم (${bloodDonors.length})`, icon: Droplet, group: 'community' },
-                { id: 'charity', label: 'الخيرية', icon: Heart, group: 'community' },
+                { id: 'blood', label: `بنك الدم (${bloodDonors.length})`, icon: Droplet, permission: 'manage_blood' as AdminPermission, group: 'community' },
+                { id: 'charity', label: 'الخيرية', icon: Heart, permission: 'manage_charity' as AdminPermission, group: 'community' },
                 { id: 'aid', label: `المساعدات (${humanitarianRequests.length})`, icon: Heart, highlight: true, permission: 'manage_aid' as AdminPermission, badge: newAidCount, group: 'community' },
                 { id: 'community_pages', label: `صفحات فيسبوك (${communityPages.length})`, icon: Globe, highlight: true, ownerOnly: true, group: 'community' },
-                { id: 'users', label: 'إدارة المستخدمين', icon: Users, highlight: true, group: 'system' },
+                { id: 'users', label: 'إدارة المستخدمين', icon: Users, highlight: true, permission: 'manage_users' as AdminPermission, group: 'system' },
                 { id: 'admins', label: 'فريق الإشراف (RBAC)', icon: ShieldAlert, highlight: true, ownerOnly: true, group: 'system' },
                 { id: 'flags', label: 'مفاتيح الخصائص', icon: Sliders, highlight: true, ownerOnly: true, group: 'system' },
                 { id: 'platform_credits', label: 'صُنّاع المنصة', icon: Sparkles, highlight: true, ownerOnly: true, group: 'system' },
-                { id: 'audit', label: 'سجل العمليات Audit', icon: History, group: 'system' },
-                { id: 'settings', label: 'الإعدادات والأمان', icon: Settings, group: 'system' }
+                { id: 'audit', label: 'سجل العمليات Audit', icon: History, permission: 'manage_audit' as AdminPermission, group: 'system' },
+                { id: 'settings', label: 'الإعدادات والأمان', icon: Settings, permission: 'manage_settings' as AdminPermission, group: 'system' }
               ]
                 .filter(tab => (!tab.ownerOnly || isOwner) && (!(tab as any).permission || hasPermission((tab as any).permission)))
                 .filter(tab => tabGroupFilter === 'all' || tab.group === 'all' || tab.group === tabGroupFilter)
@@ -831,7 +937,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ) : (
           <>
             {/* ================= TAB 1: OVERVIEW ================= */}
-            {activeAdminTab === 'overview' && (
+            {activeAdminTab === 'overview' && hasPermission('manage_overview') && (
           <div className="space-y-6">
             {/* Quick Actions Command Bar */}
             <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
@@ -989,7 +1095,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* ================= TAB 2: LISTINGS MANAGEMENT ================= */}
-        {activeAdminTab === 'listings' && (
+        {activeAdminTab === 'listings' && hasPermission('manage_listings') && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800">
               <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -1796,7 +1902,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* ================= TAB 3: REQUESTS ================= */}
-        {activeAdminTab === 'requests' && (
+        {activeAdminTab === 'requests' && hasPermission('manage_requests') && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
@@ -1970,7 +2076,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* ================= TAB 4: REPORTS ================= */}
-        {activeAdminTab === 'reports' && (
+        {activeAdminTab === 'reports' && hasPermission('manage_reports') && (
           <div className="space-y-4">
             <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
               بلاغات المواطنين عن الأرقام الخاطئة أو المغلقة ({pendingReports.length})
@@ -2019,7 +2125,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* ================= TAB 5: CATEGORIES (DYNAMIC MANAGEMENT) ================= */}
-        {activeAdminTab === 'categories' && (
+        {activeAdminTab === 'categories' && hasPermission('manage_categories') && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
               <div>
@@ -3485,32 +3591,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* ================= VILLAGE NEWS TAB ================= */}
-        {activeAdminTab === 'news' && (
+        {activeAdminTab === 'news' && hasPermission('manage_news') && (
           <NewsAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= SITE TEXTS TAB ================= */}
-        {activeAdminTab === 'texts' && (
+        {activeAdminTab === 'texts' && hasPermission('manage_texts') && (
           <SiteTextsAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= EMERGENCY NUMBERS MANAGEMENT TAB ================= */}
-        {activeAdminTab === 'emergency' && (
+        {activeAdminTab === 'emergency' && hasPermission('manage_emergency') && (
           <EmergencyAdminTab onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= MANSOURA EMERGENCY SCHEDULE TAB ================= */}
-        {activeAdminTab === 'mansoura_schedule' && (
+        {activeAdminTab === 'mansoura_schedule' && hasPermission('manage_emergency') && (
           <EmergencyScheduleAdmin />
         )}
 
         {/* ================= PLATFORM CONTRIBUTORS / CREDITS TAB ================= */}
-        {activeAdminTab === 'platform_credits' && (
+        {activeAdminTab === 'platform_credits' && isOwner && (
           <PlatformCreditsAdmin />
         )}
 
         {/* ================= TAB 6: BLOOD BANK ================= */}
-        {activeAdminTab === 'blood' && (
+        {activeAdminTab === 'blood' && hasPermission('manage_blood') && (
           <div className="space-y-4">
             <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
               إدارة بنك متبرعي الدم بشها ({bloodDonors.length} متبرع)
@@ -3549,7 +3655,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* ================= TAB 7: CHARITY ================= */}
-        {activeAdminTab === 'charity' && (
+        {activeAdminTab === 'charity' && hasPermission('manage_charity') && (
           <div className="space-y-4">
             <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
               المبادرات الخيرية
@@ -3570,32 +3676,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* ================= TAB: VERIFICATION BADGES ================= */}
-        {activeAdminTab === 'badges' && (
+        {activeAdminTab === 'badges' && hasPermission('manage_badges') && (
           <VerificationBadgesAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB: HUMANITARIAN AID ================= */}
-        {activeAdminTab === 'aid' && (
+        {activeAdminTab === 'aid' && hasPermission('manage_aid') && (
           <HumanitarianAidAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB: CITIZEN MESSAGES ================= */}
-        {activeAdminTab === 'messages' && (
+        {activeAdminTab === 'messages' && hasPermission('manage_messages') && (
           <AdminMessagesTab onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB: COMMUNITY FACEBOOK PAGES ================= */}
-        {activeAdminTab === 'community_pages' && (
+        {activeAdminTab === 'community_pages' && (isOwner || hasPermission('manage_community_pages')) && (
           <CommunityPagesAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB: REVIEWS MODERATION ================= */}
-        {activeAdminTab === 'reviews' && (
+        {activeAdminTab === 'reviews' && hasPermission('manage_reviews') && (
           <ReviewModerationAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB 8: USERS MANAGEMENT (ADVANCED) ================= */}
-        {activeAdminTab === 'users' && (
+        {activeAdminTab === 'users' && hasPermission('manage_users') && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
               <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -3976,7 +4082,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      تحديد الصلاحيات الممنوحة للمشرف:
+                      قوالب الأدوار الجاهزة (Custom Role Presets):
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {ROLE_PRESETS.map(preset => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => setNewAdminPermissions([...preset.permissions])}
+                          className="px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-bold hover:bg-amber-100 cursor-pointer"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setNewAdminPermissions([])}
+                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-200 cursor-pointer"
+                      >
+                        مسح التحديد
+                      </button>
+                    </div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      تحديد الصلاحيات الممنوحة للمشرف ({newAdminPermissions.length} صلاحية):
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1">
                       {PERMISSION_CONFIG.filter(p => p.id !== 'manage_admins').map(p => {
@@ -4121,32 +4249,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* ================= TAB: CLAIMS ================= */}
-        {activeAdminTab === 'claims' && (
+        {activeAdminTab === 'claims' && hasPermission('manage_claims') && (
           <ClaimsAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB: SUGGESTIONS ================= */}
-        {activeAdminTab === 'suggestions' && (
+        {activeAdminTab === 'suggestions' && hasPermission('manage_suggestions') && (
           <CommunitySuggestionsAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB: DATA QUALITY ================= */}
-        {activeAdminTab === 'quality' && (
+        {activeAdminTab === 'quality' && hasPermission('manage_quality') && (
           <DataQualityAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB: CSV IMPORT ================= */}
-        {activeAdminTab === 'import' && (
+        {activeAdminTab === 'import' && hasPermission('manage_import') && (
           <CSVDataImportAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB: FEATURE FLAGS ================= */}
-        {activeAdminTab === 'flags' && (
+        {activeAdminTab === 'flags' && isOwner && (
           <FeatureFlagsAdmin onSuccessToast={onSuccessToast} />
         )}
 
         {/* ================= TAB 10: AUDIT LOGS ================= */}
-        {activeAdminTab === 'audit' && (
+        {activeAdminTab === 'audit' && (hasPermission('manage_audit') || hasPermission('manage_settings')) && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -4188,9 +4316,108 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* ================= TAB 11: SETTINGS & PASSWORD ================= */}
-        {activeAdminTab === 'settings' && (
-          <div className="max-w-2xl mx-auto space-y-6">
+        {/* ================= TAB 11: SETTINGS & SECURITY CENTER ================= */}
+        {activeAdminTab === 'settings' && hasPermission('manage_settings') && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <span>مركز الأمان والمراقبة الحية (Security Operations)</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => void loadSecurityStatus()}
+                  disabled={isLoadingSecurity}
+                  className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSecurity ? 'animate-spin' : ''}`} />
+                  <span>تحديث الفحص</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
+                  <div className="font-black text-emerald-800 dark:text-emerald-300">حماية DDoS & Rate Limit</div>
+                  <div className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
+                    {securityStatus?.rateLimiting?.ddosGuard || '60 كتابة / 180 قراءة بالدقيقة لكل IP'}
+                  </div>
+                  <div className="text-[11px] font-bold mt-1.5">
+                    المحظورين: {securityStatus?.metrics?.ddosBlockedCount ?? 0}
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
+                  <div className="font-black text-blue-800 dark:text-blue-300">التشفير والجلسات</div>
+                  <div className="text-[11px] text-blue-700 dark:text-blue-400 mt-1">
+                    {securityStatus?.encryption?.passwordHashing || 'PBKDF2-SHA512 + HMAC-SHA256'}
+                  </div>
+                  <div className="text-[11px] font-bold mt-1.5">
+                    الجلسات النشطة: {activeSessionsList.length}
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
+                  <div className="font-black text-amber-800 dark:text-amber-300">محاولات الدخول الفاشلة</div>
+                  <div className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                    {securityStatus?.rateLimiting?.loginProtection || 'قفل 15 دقيقة بعد 5 محاولات'}
+                  </div>
+                  <div className="text-[11px] font-bold mt-1.5">
+                    المسجّلة: {securityStatus?.metrics?.failedLoginCount ?? 0}
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900">
+                  <div className="font-black text-purple-800 dark:text-purple-300">حماية CSRF & XSS & SQLi</div>
+                  <div className="text-[11px] text-purple-700 dark:text-purple-400 mt-1">
+                    {securityStatus?.protections?.csrf || 'Origin Allowlist + CSP + Schema Validation'}
+                  </div>
+                  <div className="text-[11px] font-bold mt-1.5">
+                    سجلات المراجعة: {securityStatus?.metrics?.auditLogsCount ?? auditLogs.length}
+                  </div>
+                </div>
+              </div>
+
+              {activeSessionsList.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">
+                      الجلسات والأجهزة النشطة ({activeSessionsList.length})
+                    </h4>
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => void handleRevokeSession('all')}
+                        className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                      >
+                        إنهاء جميع الجلسات
+                      </button>
+                    )}
+                  </div>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    {activeSessionsList.slice(0, 8).map(sess => (
+                      <div key={sess.id} className="p-3 flex items-center justify-between gap-3 text-xs bg-slate-50/50 dark:bg-slate-800/30">
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-white">
+                            {sess.name} <span className="text-[10px] font-mono text-slate-500">({sess.email})</span>
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            IP: <span className="font-mono">{sess.ip}</span> • {new Date(sess.createdAt).toLocaleString('ar-EG')}
+                          </div>
+                        </div>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => void handleRevokeSession(sess.id)}
+                            className="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 text-[11px] font-bold hover:bg-red-200 cursor-pointer shrink-0"
+                          >
+                            إنهاء
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
               <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <KeyRound className="w-5 h-5 text-amber-500" />

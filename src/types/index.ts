@@ -443,6 +443,7 @@ export interface AuditRecord {
 }
 
 export type AdminPermission =
+  | 'manage_overview'
   | 'manage_listings'
   | 'manage_categories'
   | 'manage_requests'
@@ -453,6 +454,8 @@ export type AdminPermission =
   | 'manage_users'
   | 'manage_admins'
   | 'manage_settings'
+  | 'manage_audit'
+  | 'manage_texts'
   | 'manage_ads'
   | 'manage_badges'
   | 'manage_reviews'
