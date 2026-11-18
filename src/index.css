@@ -437,5 +437,18 @@
   }
 }
 
+::selection {
+  background-color: rgba(16, 185, 129, 0.22);
+  color: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(16, 185, 129, 0.7);
+  outline-offset: 2px;
+}
+
 /* Copyright (c) 2026 MeDoAnDrOiD. All Rights Reserved. */
 
