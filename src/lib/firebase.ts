@@ -59,23 +59,53 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export async function initFirebaseConfig(): Promise<void> {
   if (app && db && auth) return;
+  try {
+    const cached = localStorage.getItem('shaha_fb_cfg_v1');
+    if (cached) {
+      const remote = JSON.parse(cached) as Record<string, string>;
+      if (remote.apiKey && remote.projectId) {
+        const resolvedDbId = remote.databaseId || firebaseDatabaseId || '';
+        app = initializeApp({
+          apiKey: remote.apiKey,
+          authDomain: remote.authDomain,
+          projectId: remote.projectId,
+          storageBucket: remote.storageBucket,
+          messagingSenderId: remote.messagingSenderId,
+          appId: remote.appId
+        });
+        db = createFirestoreInstance(app, resolvedDbId);
+        auth = getAuth(app);
+        return;
+      }
+    }
+  } catch {}
+
   const apiBase = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
-  const res = await fetch(`${apiBase}/api/firebase-config`);
-  if (!res.ok) {
-    throw new Error(`Failed to load Firebase config: HTTP ${res.status}`);
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 3500);
+  try {
+    const res = await fetch(`${apiBase}/api/firebase-config`, { signal: controller.signal });
+    if (!res.ok) {
+      throw new Error(`Failed to load Firebase config: HTTP ${res.status}`);
+    }
+    const remote = (await res.json()) as Record<string, string>;
+    try {
+      localStorage.setItem('shaha_fb_cfg_v1', JSON.stringify(remote));
+    } catch {}
+    const resolvedDbId = remote.databaseId || firebaseDatabaseId || '';
+    app = initializeApp({
+      apiKey: remote.apiKey,
+      authDomain: remote.authDomain,
+      projectId: remote.projectId,
+      storageBucket: remote.storageBucket,
+      messagingSenderId: remote.messagingSenderId,
+      appId: remote.appId
+    });
+    db = createFirestoreInstance(app, resolvedDbId);
+    auth = getAuth(app);
+  } finally {
+    window.clearTimeout(timer);
   }
-  const remote = (await res.json()) as Record<string, string>;
-  const resolvedDbId = remote.databaseId || firebaseDatabaseId || '';
-  app = initializeApp({
-    apiKey: remote.apiKey,
-    authDomain: remote.authDomain,
-    projectId: remote.projectId,
-    storageBucket: remote.storageBucket,
-    messagingSenderId: remote.messagingSenderId,
-    appId: remote.appId
-  });
-  db = createFirestoreInstance(app, resolvedDbId);
-  auth = getAuth(app);
 }
 
 export enum OperationType {
@@ -151,6 +181,9 @@ const POPUP_FALLBACK_CODES = [
  */
 export async function loginWithGoogle(): Promise<User | null> {
   try {
+    if (!auth) {
+      await initFirebaseConfig();
+    }
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (err) {
