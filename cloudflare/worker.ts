@@ -110,6 +110,7 @@ const KV_USERS = 'store:users';
 const KV_MEMBERS = 'store:admin_members';
 const KV_LISTINGS = 'store:listings';
 const KV_COMMUNITY_PAGES = 'store:community_pages';
+const KV_SITE_TEXTS = 'store:site_texts';
 const KV_SESSIONS = 'store:admin_sessions';
 const KV_REVOKED_BEFORE = 'store:revoked_before';
 
@@ -1172,6 +1173,73 @@ export default {
         })
       );
       return jsonResponse(request, env, { success: true });
+    }
+
+    if (pathname === '/api/site-texts' && request.method === 'GET') {
+      const texts = await readKvJson<Record<string, string> | null>(env.SHAHA_KV, KV_SITE_TEXTS, null);
+      const headers = buildSecurityHeaders(request, env);
+      headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+      headers.delete('Pragma');
+      return new Response(JSON.stringify({ success: true, texts }), { status: 200, headers });
+    }
+
+    if (pathname === '/api/site-texts' && request.method === 'POST') {
+      const rl = await checkRateLimit(env, 'site_texts_save', ip, 40, 900);
+      if (!rl.allowed) return jsonResponse(request, env, { error: 'تم تجاوز عدد الطلبات المسموح به' }, 429);
+
+      const authCheck = await resolveEffectiveAdmin(env, extractBearerAdmin(request));
+      if (!authCheck.valid || !authCheck.payload) {
+        return jsonResponse(request, env, { error: 'غير مصرح لك بالوصول' }, 401);
+      }
+      const hasTextsPerm =
+        authCheck.payload.role === 'owner' ||
+        authCheck.payload.role === 'super_admin' ||
+        (Array.isArray(authCheck.payload.permissions) && authCheck.payload.permissions.includes('manage_texts'));
+      if (!hasTextsPerm) {
+        return jsonResponse(request, env, { error: 'لا تملك صلاحية تعديل المحتوى والنصوص العامة' }, 403);
+      }
+
+      const body = await readJsonBody(request);
+      const rawTexts = body?.texts;
+      if (!rawTexts || typeof rawTexts !== 'object') {
+        return jsonResponse(request, env, { error: 'بيانات النصوص غير صالحة' }, 400);
+      }
+
+      const allowedKeys = [
+        'siteTitle',
+        'tagline',
+        'heroHeadline',
+        'heroSubheadline',
+        'footerDescription',
+        'emergencyAlertText',
+        'addServiceNotice',
+        'contactWhatsApp',
+        'contactPhone',
+        'footerAboutTitle',
+        'footerAboutLocation',
+        'footerAboutEmergency',
+        'footerAboutEmail',
+        'aboutVillageTitle',
+        'aboutVillageText'
+      ];
+      const sanitized: Record<string, string> = {};
+      for (const key of allowedKeys) {
+        const val = (rawTexts as Record<string, unknown>)[key];
+        if (typeof val === 'string') {
+          sanitized[key] = val.trim().slice(0, 1200);
+        }
+      }
+
+      await writeKvJson(env.SHAHA_KV, KV_SITE_TEXTS, sanitized);
+      ctx.waitUntil(
+        appendAuditLog(env, {
+          action: 'UPDATE_SITE_TEXTS',
+          adminUser: authCheck.payload.email,
+          target: 'محتوى المنصة وعن قرية شها',
+          details: 'تحديث النصوص العامة وقسم عن قرية شها عبر السحابة'
+        })
+      );
+      return jsonResponse(request, env, { success: true, texts: sanitized });
     }
 
     const adminCheck = await resolveEffectiveAdmin(env, extractBearerAdmin(request));

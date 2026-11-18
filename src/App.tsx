@@ -39,6 +39,7 @@ import { recordRecentlyViewed } from './components/common/RecentlyViewedBar';
 
 // Utilities
 import { AppRoute, parseCurrentRoute, navigateTo, updateSeoMeta } from './utils/navigation';
+import { scheduleIdleTask } from './lib/net';
 import { Listing, AdminMessageTopic } from './types';
 import { ShieldCheck, X, AlertTriangle, Smartphone } from 'lucide-react';
 
@@ -101,6 +102,20 @@ function DirectoryMain() {
 
   useEffect(() => {
     return enableGlobalHorizontalWheelScroll();
+  }, []);
+
+  // Warm up core route chunks during browser idle time for instant tab transitions
+  useEffect(() => {
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (conn?.saveData || conn?.effectiveType === '2g' || conn?.effectiveType === 'slow-2g') {
+      return;
+    }
+    return scheduleIdleTask(() => {
+      void import('./pages/CategoriesPage');
+      void import('./pages/NewsPage');
+      void import('./pages/EmergencyPage');
+      void import('./pages/AboutPage');
+    }, 1800);
   }, []);
 
   const handleCopyPhone = (phone: string) => {

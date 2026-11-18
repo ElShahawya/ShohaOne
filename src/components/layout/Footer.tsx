@@ -2,6 +2,7 @@ import React from 'react';
 import { Phone, Heart, Shield, Droplet, Mail, MapPin, Newspaper } from 'lucide-react';
 import { PlatformCreditsFooter } from '../common/PlatformCreditsFooter';
 import { BrandMark } from '../common/BrandMark';
+import { useSiteTexts } from '../../hooks/useSiteTexts';
 
 interface FooterProps {
   onNavigateTab: (tab: string) => void;
@@ -16,6 +17,8 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenAddService,
   onOpenContactAdmin
 }) => {
+  const siteTexts = useSiteTexts();
+
   return (
     <footer className="relative overflow-hidden bg-slate-950 text-slate-300 pt-16 pb-12 border-t border-slate-800">
       <div className="absolute inset-0 brand-pattern opacity-40 pointer-events-none" aria-hidden="true" />
@@ -28,12 +31,12 @@ export const Footer: React.FC<FooterProps> = ({
             <div className="flex items-center gap-3">
               <BrandMark size="md" withRing />
               <div>
-                <h3 className="font-display text-lg font-black text-white">SHAHA ONE | شها ون</h3>
-                <p className="text-xs text-blue-300 font-semibold">شها كلها.. أقرب وأسهل في مكان واحد</p>
+                <h3 className="font-display text-lg font-black text-white">{siteTexts.siteTitle}</h3>
+                <p className="text-xs text-blue-300 font-semibold">{siteTexts.tagline}</p>
               </div>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              منصتك الرقمية المتكاملة لخدمات أهالي شها – مركز المنصورة – محافظة الدقهلية. تجمع الخدمات والأرقام والأماكن والتواصل والمساعدات المجتمعية في مكان واحد.
+              {siteTexts.footerDescription}
             </p>
             <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold bg-emerald-950/50 border border-emerald-800/60 px-3 py-2 rounded-xl">
               <Shield className="w-4 h-4 shrink-0" />
@@ -138,20 +141,20 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Col 4: Village Location & Info */}
           <div>
             <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
-              عن قرية شها
+              {siteTexts.footerAboutTitle}
             </h4>
             <ul className="space-y-3 text-xs text-slate-400">
               <li className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-                <span>قرية شها – تابعة لمركز المنصورة – محافظة الدقهلية – جمهورية مصر العربية</span>
+                <span>{siteTexts.footerAboutLocation}</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Phone className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>إسعاف شها: 123 | شرطة النجدة: 122</span>
+                <span>{siteTexts.footerAboutEmergency}</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <Mail className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                <span>تواصل مع المشرف: admin@shaha-directory.eg</span>
+                <span>{siteTexts.footerAboutEmail}</span>
               </li>
             </ul>
           </div>

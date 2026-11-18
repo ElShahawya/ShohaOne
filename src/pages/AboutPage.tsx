@@ -3,6 +3,7 @@ import { Breadcrumbs } from '../components/common/Breadcrumbs';
 import { NativeTopBar } from '../components/common/NativeTopBar';
 import { navigateTo } from '../utils/navigation';
 import { useGsapReveal } from '../hooks/useGsapReveal';
+import { useSiteTexts } from '../hooks/useSiteTexts';
 import {
   Building2,
   ShieldCheck,
@@ -21,6 +22,7 @@ interface AboutPageProps {
 
 export const AboutPage: React.FC<AboutPageProps> = ({ onOpenAddService }) => {
   const pillarsRef = useGsapReveal<HTMLDivElement>({ stagger: 0.08, y: 16 });
+  const siteTexts = useSiteTexts();
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* 1. Native Top Bar with Back Button */}
@@ -85,10 +87,10 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onOpenAddService }) => {
 
       <div className="card-luxe p-6 sm:p-8 space-y-4">
         <h2 className="text-xl font-black text-slate-900 dark:text-white">
-          نبذة عن قرية شها
+          {siteTexts.aboutVillageTitle}
         </h2>
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          شها هي إحدى قرى مركز المنصورة العريقة بمحافظة الدقهلية، وتتميز بموقعها الحيوي وكثافتها السكانية ونشاطها التجاري والمهني المتميز. يهدف هذا الدليل إلى تمكين أبناء شها والمقيمين بها من الحصول على كافة الخدمات اليومية والتواصل المباشر مع أصحاب المهن والمحلات بكل سهولة.
+          {siteTexts.aboutVillageText}
         </p>
       </div>
 
