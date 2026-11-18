@@ -561,6 +561,24 @@ export default {
     const ownerEmail = env.OWNER_EMAIL || 'devmedoandroid@gmail.com';
     const ip = getClientIp(request);
 
+    if (pathname !== '/api/health') {
+      const burstLimit = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) ? 60 : 180;
+      const rlGlobal = await checkRateLimit(env, 'ddos_guard', ip, burstLimit, 60);
+      if (!rlGlobal.allowed) {
+        ctx.waitUntil(
+          appendAuditLog(env, {
+            action: 'DDOS_RATE_LIMIT',
+            adminUser: 'edge_waf',
+            target: pathname,
+            details: `حظر مؤقت لطلبات زائدة (${request.method}) من IP: ${ip}`
+          })
+        );
+        const res = jsonResponse(request, env, { error: 'تم تجاوز الحد المسموح للطلبات. حاول بعد قليل.' }, 429);
+        res.headers.set('Retry-After', String(rlGlobal.retryAfterSec || 60));
+        return res;
+      }
+    }
+
     if (pathname === '/api/health' && request.method === 'GET') {
       return jsonResponse(request, env, {
         status: 'healthy',

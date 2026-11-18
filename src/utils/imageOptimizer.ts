@@ -10,7 +10,7 @@ export interface CompressionResult {
   dataUrl: string;
   originalSizeBytes: number;
   compressedSizeBytes: number;
-  format: 'image/webp' | 'image/jpeg';
+  format: 'image/avif' | 'image/webp' | 'image/jpeg';
   width: number;
   height: number;
   savedPercent: number;
@@ -181,13 +181,16 @@ function finishCompression(
   height: number,
   resolve: (res: CompressionResult) => void
 ) {
-  // Test if WebP is supported
-  let format: 'image/webp' | 'image/jpeg' = 'image/webp';
+  let format: 'image/avif' | 'image/webp' | 'image/jpeg' = 'image/avif';
   let quality = limits.defaultQuality;
   let dataUrl = canvas.toDataURL(format, quality);
 
-  // If WebP is not supported or returned png, fallback to jpeg
-  if (!dataUrl.startsWith('data:image/webp')) {
+  if (!dataUrl.startsWith('data:image/avif')) {
+    format = 'image/webp';
+    dataUrl = canvas.toDataURL(format, quality);
+  }
+
+  if (!dataUrl.startsWith('data:image/webp') && !dataUrl.startsWith('data:image/avif')) {
     format = 'image/jpeg';
     dataUrl = canvas.toDataURL(format, quality);
   }

@@ -1,5 +1,6 @@
 // SHAHA ONE | شها ون — Progressive Web App Service Worker
-const CACHE_NAME = 'shaha-one-v5';
+const CACHE_NAME = 'shaha-one-v6';
+const IMAGE_CACHE = 'shaha-one-images-v1';
 const APP_SHELL = [
   './',
   './index.html',
@@ -22,7 +23,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key !== CACHE_NAME && key !== IMAGE_CACHE) {
             return caches.delete(key);
           }
         })
@@ -58,7 +59,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static Assets & Images: Stale-While-Revalidate
+  // Images: Cache-first for instant repeat loads
+  if (request.destination === 'image') {
+    event.respondWith(
+      caches.open(IMAGE_CACHE).then((cache) =>
+        cache.match(request).then((cached) => {
+          if (cached) return cached;
+          return fetch(request).then((res) => {
+            if (res && (res.status === 200 || res.type === 'opaque')) {
+              cache.put(request, res.clone());
+            }
+            return res;
+          });
+        })
+      )
+    );
+    return;
+  }
+
+  // Static Assets: Stale-While-Revalidate
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       const fetchPromise = fetch(request).then((networkResponse) => {
