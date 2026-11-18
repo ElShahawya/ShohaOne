@@ -546,6 +546,11 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     void completeGoogleRedirect();
 
+    if (!auth) {
+      setIsInitializing(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setIsInitializing(false);

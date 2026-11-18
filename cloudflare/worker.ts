@@ -16,6 +16,8 @@ export interface Env {
   OWNER_EMAIL: string;
   FIREBASE_PROJECT_ID: string;
   FIREBASE_OAUTH_CLIENT_ID?: string;
+  FIREBASE_PUBLIC_CONFIG?: string;
+  FIREBASE_WEB_CONFIG?: string;
   ALLOWED_ORIGINS?: string;
   SHAHA_KEYS_VAULT?: string;
 }
@@ -717,6 +719,22 @@ export default {
         secretsVaultActive: Boolean(env.SHAHA_KEYS_VAULT),
         time: new Date().toISOString()
       });
+    }
+
+    if (pathname === '/api/firebase-config' && request.method === 'GET') {
+      const rawConfig = env.FIREBASE_PUBLIC_CONFIG || env.FIREBASE_WEB_CONFIG || '';
+      if (!rawConfig) {
+        return jsonResponse(request, env, { error: 'إعدادات Firebase غير متوفرة' }, 500);
+      }
+      try {
+        const parsed = JSON.parse(rawConfig) as Record<string, unknown>;
+        const headers = buildSecurityHeaders(request, env);
+        headers.set('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
+        headers.delete('Pragma');
+        return new Response(JSON.stringify(parsed), { status: 200, headers });
+      } catch {
+        return jsonResponse(request, env, { error: 'تعذر قراءة إعدادات Firebase' }, 500);
+      }
     }
 
     if (pathname === '/api/admin/login' && request.method === 'POST') {
