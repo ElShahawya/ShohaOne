@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useDirectory } from '../../context/DirectoryContext';
 import { apiUrl, fetchWithTimeout } from '../../lib/net';
+import { db } from '../../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import {
   DEFAULT_SITE_TEXTS,
   PlatformSiteTexts,
@@ -44,6 +46,19 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
 
   const persistToCloudAndLocal = async (nextTexts: PlatformSiteTexts): Promise<'cloud' | 'local'> => {
     persistSiteTextsLocally(nextTexts);
+    let synced = false;
+
+    try {
+      await setDoc(
+        doc(db, 'site_settings', 'texts'),
+        { ...nextTexts, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+      synced = true;
+    } catch {
+      // Best-effort Firestore persistence (admin Firebase session may be offline)
+    }
+
     if (adminSession?.token) {
       try {
         const res = await fetchWithTimeout(
@@ -59,13 +74,13 @@ export const SiteTextsAdmin: React.FC<SiteTextsAdminProps> = ({ onSuccessToast }
           7000
         );
         if (res.ok) {
-          return 'cloud';
+          synced = true;
         }
       } catch {
         // Offline or network failure falls back to local persistence
       }
     }
-    return 'local';
+    return synced ? 'cloud' : 'local';
   };
 
   const handleSave = async (e: React.FormEvent) => {
