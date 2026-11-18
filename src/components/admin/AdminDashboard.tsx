@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import { useDirectory } from '../../context/DirectoryContext';
 import { apiUrl } from '../../lib/net';
+import { getErrorHistory, clearErrorHistory, ErrorEntry } from '../../lib/notify';
 import { ListingCard } from '../listings/ListingCard';
 import { NewsAdmin } from './NewsAdmin';
 import { SiteTextsAdmin } from './SiteTextsAdmin';
@@ -356,6 +357,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [securityStatus, setSecurityStatus] = useState<any>(null);
   const [activeSessionsList, setActiveSessionsList] = useState<any[]>([]);
   const [isLoadingSecurity, setIsLoadingSecurity] = useState(false);
+  const [errorLogs, setErrorLogs] = useState<ErrorEntry[]>(() => getErrorHistory());
+  const [deletedTrash, setDeletedTrash] = useState<Listing[]>(() => {
+    try {
+      const raw = localStorage.getItem('shaha_deleted_trash_v1');
+      return raw ? (JSON.parse(raw) as Listing[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (editingListing && !editingListing.id && (editingListing.name || editingListing.phone)) {
+      try {
+        localStorage.setItem('shaha_listing_draft_v1', JSON.stringify(editingListing));
+      } catch {}
+    }
+  }, [editingListing]);
+
+  const pushToTrash = (items: Listing[]) => {
+    if (items.length === 0) return;
+    setDeletedTrash(prev => {
+      const next = [...items, ...prev.filter(p => !items.some(i => i.id === p.id))].slice(0, 20);
+      try {
+        localStorage.setItem('shaha_deleted_trash_v1', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const restoreFromTrash = async (item: Listing) => {
+    await saveListing({ ...item, status: 'active' });
+    setDeletedTrash(prev => {
+      const next = prev.filter(p => p.id !== item.id);
+      try {
+        localStorage.setItem('shaha_deleted_trash_v1', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    onSuccessToast(`تمت استعادة «${item.name}» إلى الدليل بنجاح`);
+  };
 
   // Admin Management State
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
@@ -503,6 +544,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!editingListing?.name || !editingListing?.phone) return;
 
     await saveListing(editingListing);
+    try {
+      localStorage.removeItem('shaha_listing_draft_v1');
+    } catch {}
     onSuccessToast('تم حفظ بيانات الخدمة وتحديث الدليل بنجاح!');
     setEditingListing(null);
   };
@@ -582,9 +626,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleBulkDelete = async () => {
     if (selectedListingIds.length === 0) return;
-    if (confirm(`هل أنت متأكد من حذف ${selectedListingIds.length} أرقام محددة نهائياً من الدليل؟`)) {
+    if (confirm(`هل أنت متأكد من حذف ${selectedListingIds.length} أرقام محددة من الدليل؟ (يمكنك استعادتها من سلة المحذوفات)`)) {
+      const toTrash = listings.filter(l => selectedListingIds.includes(l.id));
+      pushToTrash(toTrash);
       await bulkDeleteListings(selectedListingIds);
-      onSuccessToast(`تم حذف ${selectedListingIds.length} أرقام بنجاح`);
+      onSuccessToast(`تم حذف ${selectedListingIds.length} أرقام (متاحة للاستعادة في سلة المحذوفات)`);
       setSelectedListingIds([]);
     }
   };
@@ -1229,6 +1275,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
+            {deletedTrash.length > 0 && (
+              <div className="p-4 rounded-3xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-amber-900 dark:text-amber-200">
+                    سلة المحذوفات والاستعادة الفورية (Rollback - {deletedTrash.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeletedTrash([]);
+                      try { localStorage.removeItem('shaha_deleted_trash_v1'); } catch {}
+                    }}
+                    className="text-[11px] font-bold text-amber-700 hover:underline cursor-pointer"
+                  >
+                    إفراغ السلة
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {deletedTrash.slice(0, 6).map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => void restoreFromTrash(item)}
+                      className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-emerald-50 hover:border-emerald-400 cursor-pointer"
+                    >
+                      استعادة: {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Listings Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredListings.map(listing => (
@@ -1273,18 +1351,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <p className="text-[11px] text-slate-400 mt-0.5">{listing.address}</p>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button
                       onClick={() => setEditingListing(listing)}
-                      className="flex-1 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer"
+                      className="flex-1 min-w-[64px] py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer"
                     >
                       تعديل
                     </button>
                     <button
+                      onClick={async () => {
+                        const nextVal = !listing.isVerified;
+                        await bulkUpdateListings([listing.id], { isVerified: nextVal });
+                        onSuccessToast(nextVal ? `تم توثيق ${listing.name}` : `تم إلغاء توثيق ${listing.name}`);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-colors cursor-pointer ${
+                        listing.isVerified
+                          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                      title={listing.isVerified ? 'إلغاء التوثيق' : 'توثيق'}
+                    >
+                      {listing.isVerified ? 'إلغاء توثيق' : 'توثيق'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const nextStatus = listing.status === 'hidden' ? 'active' : 'hidden';
+                        await bulkUpdateListings([listing.id], { status: nextStatus });
+                        onSuccessToast(nextStatus === 'hidden' ? `تم إخفاء ${listing.name}` : `تم إظهار ${listing.name}`);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-colors cursor-pointer ${
+                        listing.status === 'hidden'
+                          ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                          : 'bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                      title={listing.status === 'hidden' ? 'إظهار' : 'إخفاء'}
+                    >
+                      {listing.status === 'hidden' ? 'إظهار' : 'إخفاء'}
+                    </button>
+                    <button
                       onClick={() => {
                         if (confirm(`هل أنت متأكد من حذف ${listing.name} من الدليل؟`)) {
+                          pushToTrash([listing]);
                           deleteListing(listing.id);
-                          onSuccessToast('تم حذف الرقم بنجاح');
+                          onSuccessToast('تم حذف الرقم (يمكنك استعادته من سلة المحذوفات)');
                         }
                       }}
                       className="p-2 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
@@ -4414,6 +4523,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  <span>مركز إشعارات الأخطاء التقنية ({errorLogs.length})</span>
+                </h3>
+                {errorLogs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearErrorHistory();
+                      setErrorLogs([]);
+                      onSuccessToast('تم مسح سجل الأخطاء');
+                    }}
+                    className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
+                  >
+                    مسح السجل
+                  </button>
+                )}
+              </div>
+              {errorLogs.length === 0 ? (
+                <p className="text-xs text-slate-500">لا توجد أخطاء مسجلة حالياً، جميع العمليات تعمل باستقرار.</p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden text-xs">
+                  {errorLogs.slice(0, 10).map(err => (
+                    <div key={err.id} className="p-3 bg-red-50/30 dark:bg-red-950/10 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-bold text-red-700 dark:text-red-300">{err.message}</div>
+                        {err.context && <div className="text-[11px] font-mono text-slate-500 mt-0.5">{err.context}</div>}
+                      </div>
+                      <span className="text-[10px] text-slate-400 shrink-0">{new Date(err.timestamp).toLocaleString('ar-EG')}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

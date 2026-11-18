@@ -74,12 +74,19 @@ class OfflineQueueManager {
   /**
    * Enqueue a new operation idempotently.
    */
-  public enqueue(actionType: QueuedOperation['actionType'], payload: any): string {
+  public enqueue(actionType: QueuedOperation['actionType'], payload: any, dedupeKey?: string): string {
+    if (dedupeKey) {
+      const existing = this.queue.find(
+        op => op.actionType === actionType && op.payload?.dedupeKey === dedupeKey && op.status !== 'completed'
+      );
+      if (existing) return existing.id;
+    }
+
     const id = 'op_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
     const operation: QueuedOperation = {
       id,
       actionType,
-      payload,
+      payload: dedupeKey ? { ...payload, dedupeKey } : payload,
       timestamp: Date.now(),
       retryCount: 0,
       status: 'pending'
@@ -88,7 +95,6 @@ class OfflineQueueManager {
     this.queue.push(operation);
     this.saveToStorage();
 
-    // If online, attempt to process immediately
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       setTimeout(() => this.processQueue(), 100);
     }

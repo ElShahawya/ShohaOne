@@ -16,6 +16,8 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { db, auth, loginWithGoogle, completeGoogleRedirect, logoutUser, handleFirestoreError, OperationType } from '../lib/firebase';
 import { apiUrl, fetchWithTimeout, scheduleIdleTask, stripUndefined, withTimeout } from '../lib/net';
 import { isOwnerEmail } from '../lib/security';
+import { offlineQueue } from '../lib/offlineQueue';
+import { reportError } from '../lib/notify';
 import { readCache, scheduleCacheWrite, removeCache } from '../utils/storage';
 import {
   Category,
@@ -1238,25 +1240,36 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       status: 'pending',
       createdAt: new Date().toISOString()
     };
+    const cleanRequest = stripUndefined(newRequest as unknown as Record<string, unknown>);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      offlineQueue.enqueue('SUBMIT_SERVICE_REQUEST', cleanRequest, id);
+      setServiceRequests(prev => [newRequest, ...prev]);
+      return true;
+    }
+
     try {
-      await setDoc(doc(db, 'service_requests', id), stripUndefined(newRequest as unknown as Record<string, unknown>));
-      // Optimistically add to state
+      await setDoc(doc(db, 'service_requests', id), cleanRequest);
       setServiceRequests(prev => [newRequest, ...prev]);
       return true;
     } catch (error) {
-      try {
-        handleFirestoreError(error, OperationType.CREATE, `service_requests/${id}`);
-      } catch {
-        // Fallback store in local cache
-        const current = JSON.parse(localStorage.getItem('shaha_requests_cache') || '[]');
-        current.unshift(newRequest);
-        localStorage.setItem('shaha_requests_cache', JSON.stringify(current));
-        setServiceRequests(current);
-        return true;
-      }
-      return false;
+      offlineQueue.enqueue('SUBMIT_SERVICE_REQUEST', cleanRequest, id);
+      reportError('تم حفظ الطلب محلياً وستتم مزامنته تلقائياً فور عودة الاتصال.', error instanceof Error ? error.message : String(error));
+      setServiceRequests(prev => [newRequest, ...prev]);
+      return true;
     }
   };
+
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const op = (ev as CustomEvent<{ actionType: string; payload: any }>).detail;
+      if (!op) return;
+      if (op.actionType === 'SUBMIT_SERVICE_REQUEST' && op.payload?.id) {
+        void setDoc(doc(db, 'service_requests', op.payload.id), stripUndefined(op.payload)).catch(() => {});
+      }
+    };
+    window.addEventListener('shaha_process_queued_op', handler);
+    return () => window.removeEventListener('shaha_process_queued_op', handler);
+  }, []);
 
   const submitReport = async (rep: Omit<Report, 'id' | 'status' | 'createdAt'>) => {
     const id = 'rep_' + Date.now();
@@ -2464,25 +2477,57 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const bulkUpdateListings = async (listingIds: string[], updates: Partial<Listing>) => {
-    try {
-      const promises = listingIds.map(id => updateDoc(doc(db, 'listings', id), updates).catch(() => {}));
-      await Promise.all(promises);
-    } catch {
-      // fallback
-    }
-    setListings(prev => prev.map(l => listingIds.includes(l.id) ? { ...l, ...updates, updatedAt: new Date().toISOString() } : l));
+    const cleanUpdates = stripUndefined(updates as unknown as Record<string, unknown>);
+    const now = new Date().toISOString();
+
+    let nextSnapshot: Listing[] = [];
+    setListings(prev => {
+      nextSnapshot = prev.map(l => listingIds.includes(l.id) ? { ...l, ...updates, updatedAt: now } : l);
+      scheduleCacheWrite('shaha_listings_cache', nextSnapshot);
+      return nextSnapshot;
+    });
+
+    const fsTasks = listingIds.map(id =>
+      updateDoc(doc(db, 'listings', id), { ...cleanUpdates, updatedAt: now }).catch(() => {})
+    );
+    const kvTasks = adminSession?.token
+      ? nextSnapshot
+          .filter(l => listingIds.includes(l.id))
+          .map(item =>
+            fetch(apiUrl('/api/listings/save'), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${adminSession.token}`
+              },
+              body: JSON.stringify({ listing: stripUndefined(item as unknown as Record<string, unknown>) })
+            }).catch(() => {})
+          )
+      : [];
+
+    await Promise.allSettled([...fsTasks, ...kvTasks]);
     logAdminAction('BULK_UPDATE_LISTINGS', `${listingIds.length} عنصر`, 'تحديث جماعي لحالة الأرقام');
     return true;
   };
 
   const bulkDeleteListings = async (listingIds: string[]) => {
-    try {
-      const promises = listingIds.map(id => deleteDoc(doc(db, 'listings', id)).catch(() => {}));
-      await Promise.all(promises);
-    } catch {
-      // fallback
-    }
-    setListings(prev => prev.filter(l => !listingIds.includes(l.id)));
+    setListings(prev => {
+      const next = prev.filter(l => !listingIds.includes(l.id));
+      scheduleCacheWrite('shaha_listings_cache', next);
+      return next;
+    });
+
+    const fsTasks = listingIds.map(id => deleteDoc(doc(db, 'listings', id)).catch(() => {}));
+    const kvTasks = adminSession?.token
+      ? listingIds.map(id =>
+          fetch(apiUrl(`/api/listings/${id}`), {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${adminSession.token}` }
+          }).catch(() => {})
+        )
+      : [];
+
+    await Promise.allSettled([...fsTasks, ...kvTasks]);
     logAdminAction('BULK_DELETE_LISTINGS', `${listingIds.length} عنصر`, 'حذف جماعي للأرقام من الدليل');
     return true;
   };
