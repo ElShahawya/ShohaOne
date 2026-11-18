@@ -269,43 +269,28 @@ function DirectoryMain() {
 
   if (currentRoute.page === 'admin' && !isAdmin) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-        <div className="card-luxe max-w-md w-full p-8 text-center space-y-4">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 flex items-center justify-center">
-            <ShieldCheck className="w-7 h-7" />
-          </div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white">لوحة التحكم محمية</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            هذه المنطقة مخصصة لفريق إدارة منصة شها ون. يرجى تسجيل الدخول بحساب مصرح له للمتابعة.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2 pt-2">
-            <button
-              onClick={() => setIsAdminLoginOpen(true)}
-              className="flex-1 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm transition-colors cursor-pointer"
-            >
-              تسجيل دخول الإدارة
-            </button>
-            <button
-              onClick={() => navigateTo({ page: 'home' })}
-              className="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-sm transition-colors cursor-pointer"
-            >
-              العودة للرئيسية
-            </button>
-          </div>
-        </div>
-        <Suspense fallback={null}>
-          {isAdminLoginOpen && (
-            <AdminLoginModal
-              isOpen={isAdminLoginOpen}
-              onClose={() => setIsAdminLoginOpen(false)}
-              onLoginSuccess={() => {
-                addToast('مرحباً بك في لوحة تحكم منصة شها ون!', 'success');
-              }}
-            />
-          )}
+      <>
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+              <div className="text-center space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-2xl border-4 border-blue-600 border-t-transparent animate-spin" />
+                <p className="text-sm font-bold text-slate-500">جارٍ تجهيز بوابة الدخول…</p>
+              </div>
+            </div>
+          }
+        >
+          <AdminLoginModal
+            isOpen={true}
+            variant="page"
+            onClose={() => navigateTo({ page: 'home' })}
+            onLoginSuccess={() => {
+              addToast('مرحباً بك في لوحة تحكم منصة شها ون!', 'success');
+            }}
+          />
         </Suspense>
         <ToastContainer toasts={toasts} onRemove={removeToast} />
-      </div>
+      </>
     );
   }
 
