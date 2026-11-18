@@ -48,11 +48,11 @@ function createFirestoreInstance(targetApp: ReturnType<typeof initializeApp>, db
       dbId || undefined
     );
   } catch {
-    return getFirestore(targetApp, dbId || undefined);
+    return dbId ? getFirestore(targetApp, dbId) : getFirestore(targetApp);
   }
 }
 
-export let db: Firestore = app ? createFirestoreInstance(app, firebaseDatabaseId) : (null as unknown as Firestore);
+export let db: Firestore = app ? createFirestoreInstance(app, firebaseDatabaseId || '') : (null as unknown as Firestore);
 export let auth = app ? getAuth(app) : (null as unknown as ReturnType<typeof getAuth>);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
@@ -65,7 +65,7 @@ export async function initFirebaseConfig(): Promise<void> {
     throw new Error(`Failed to load Firebase config: HTTP ${res.status}`);
   }
   const remote = (await res.json()) as Record<string, string>;
-  const resolvedDbId = remote.databaseId || firebaseDatabaseId;
+  const resolvedDbId = remote.databaseId || firebaseDatabaseId || '';
   app = initializeApp({
     apiKey: remote.apiKey,
     authDomain: remote.authDomain,
