@@ -163,15 +163,69 @@ function DirectoryMain() {
     }
   }, [currentRoute.page]);
 
-  // PWA Install prompt listener
+  // PWA Install prompt listener (hidden automatically if app is already installed or dismissed)
   useEffect(() => {
+    const isStandalone =
+      (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches) ||
+      Boolean((window.navigator as { standalone?: boolean }).standalone);
+    const alreadyMarked =
+      localStorage.getItem('shaha_pwa_installed') === '1' ||
+      localStorage.getItem('shaha_pwa_dismissed') === '1';
+
+    if (isStandalone) {
+      try {
+        localStorage.setItem('shaha_pwa_installed', '1');
+      } catch {}
+      setShowInstallBanner(false);
+      return;
+    }
+
+    if (alreadyMarked) {
+      setShowInstallBanner(false);
+    }
+
+    const checkRelatedApps = async () => {
+      const nav = navigator as Navigator & { getInstalledRelatedApps?: () => Promise<unknown[]> };
+      if (typeof nav.getInstalledRelatedApps === 'function') {
+        try {
+          const apps = await nav.getInstalledRelatedApps();
+          if (Array.isArray(apps) && apps.length > 0) {
+            localStorage.setItem('shaha_pwa_installed', '1');
+            setShowInstallBanner(false);
+          }
+        } catch {}
+      }
+    };
+    void checkRelatedApps();
+
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
+      if (
+        localStorage.getItem('shaha_pwa_installed') === '1' ||
+        localStorage.getItem('shaha_pwa_dismissed') === '1' ||
+        window.matchMedia?.('(display-mode: standalone)').matches
+      ) {
+        setShowInstallBanner(false);
+        return;
+      }
       setDeferredPrompt(e);
       setShowInstallBanner(true);
     };
+
+    const handleAppInstalled = () => {
+      try {
+        localStorage.setItem('shaha_pwa_installed', '1');
+      } catch {}
+      setShowInstallBanner(false);
+      setDeferredPrompt(null);
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
   const handleInstallApp = async () => {
@@ -179,6 +233,9 @@ function DirectoryMain() {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
+      try {
+        localStorage.setItem('shaha_pwa_installed', '1');
+      } catch {}
       setShowInstallBanner(false);
       addToast('شكراً لتثبيت تطبيق منصة شها ون على هاتفك!', 'success');
     }
@@ -307,9 +364,9 @@ function DirectoryMain() {
       )}
 
       {showInstallBanner && (
-        <div className="bg-gradient-to-r from-blue-800 via-teal-700 to-blue-700 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm font-bold z-50">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-white/15 shrink-0">
+        <div className="bg-gradient-to-r from-emerald-800 via-teal-700 to-slate-900 backdrop-blur-md text-white px-4 py-2.5 shadow-md border-b border-white/10 flex items-center justify-between gap-3 text-xs sm:text-sm font-bold z-50">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-xl bg-white/15 shrink-0">
               <Smartphone className="w-4 h-4" />
             </span>
             <span>تثبيت تطبيق «شها ون | SHAHA ONE» على شاشة هاتفك للوصول السريع بنقرة واحدة</span>
@@ -317,14 +374,20 @@ function DirectoryMain() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleInstallApp}
-              className="px-3.5 py-1.5 rounded-xl bg-white text-blue-800 hover:bg-blue-50 font-black text-xs active:scale-95 transition-all shadow-sm shrink-0 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-white text-emerald-800 hover:bg-emerald-50 font-black text-xs active:scale-95 transition-all shadow-sm shrink-0 cursor-pointer"
             >
               تثبيت الآن
             </button>
             <button
-              onClick={() => setShowInstallBanner(false)}
-              className="p-1 hover:bg-white/10 rounded-lg text-white/80 cursor-pointer"
+              onClick={() => {
+                try {
+                  localStorage.setItem('shaha_pwa_dismissed', '1');
+                } catch {}
+                setShowInstallBanner(false);
+              }}
+              className="p-1.5 hover:bg-white/15 rounded-xl text-white/85 transition-colors cursor-pointer"
               title="إغلاق التنبيه"
+              aria-label="إغلاق التنبيه"
             >
               <X className="w-4 h-4" />
             </button>
