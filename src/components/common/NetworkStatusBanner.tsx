@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { WifiOff, Wifi, RefreshCw } from 'lucide-react';
+import { WifiOff, Wifi } from 'lucide-react';
+import { offlineQueue } from '../../lib/offlineQueue';
 
 export const NetworkStatusBanner: React.FC = () => {
   const [isOnline, setIsOnline] = useState<boolean>(typeof window !== 'undefined' ? window.navigator.onLine : true);
   const [showRestoredNotice, setShowRestoredNotice] = useState(false);
+  const [pendingCount, setPendingCount] = useState<number>(() => offlineQueue.getPendingCount());
+
+  useEffect(() => {
+    return offlineQueue.subscribe((q) => {
+      setPendingCount(q.filter(item => item.status === 'pending' || item.status === 'processing').length);
+    });
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       setShowRestoredNotice(true);
+      void offlineQueue.processQueue();
       const timer = setTimeout(() => setShowRestoredNotice(false), 4000);
       return () => clearTimeout(timer);
     };
@@ -57,7 +66,9 @@ export const NetworkStatusBanner: React.FC = () => {
         <div className="min-w-0">
           <h4 className="text-xs font-black text-white">أنت تعمل بدون اتصال</h4>
           <p className="text-[11px] text-slate-300 truncate">
-            يتم عرض أرقام وخدمات شها المحفوظة في وضع عدم الاتصال (Offline Mode).
+            {pendingCount > 0
+              ? `لديك ${pendingCount} عملية محفوظة ستتم مزامنتها تلقائياً عند عودة الشبكة.`
+              : 'يتم عرض أرقام وخدمات شها المحفوظة في وضع عدم الاتصال (Offline Mode).'}
           </p>
         </div>
       </div>
