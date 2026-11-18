@@ -67,6 +67,7 @@ interface TokenPayload {
   email: string;
   name: string;
   permissions: string[];
+  iat?: number;
   exp: number;
 }
 
@@ -110,6 +111,7 @@ const KV_MEMBERS = 'store:admin_members';
 const KV_LISTINGS = 'store:listings';
 const KV_COMMUNITY_PAGES = 'store:community_pages';
 const KV_SESSIONS = 'store:admin_sessions';
+const KV_REVOKED_BEFORE = 'store:revoked_before';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -224,6 +226,7 @@ async function generateAdminToken(
     email,
     name,
     permissions,
+    iat: Date.now(),
     exp: Date.now() + 24 * 60 * 60 * 1000
   };
   const data = toBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -290,6 +293,10 @@ async function resolveEffectiveAdmin(
   const check = await verifyAdminToken(env.SESSION_SECRET, token);
   if (!check.valid || !check.payload) return { valid: false };
   const p = check.payload;
+  const revokedBefore = await readKvJson<number>(env.SHAHA_KV, KV_REVOKED_BEFORE, 0);
+  if (revokedBefore > 0 && (!p.iat || p.iat < revokedBefore)) {
+    return { valid: false };
+  }
   if (p.role === 'owner' || p.role === 'super_admin') {
     return { valid: true, payload: p };
   }
@@ -1400,6 +1407,7 @@ export default {
       let sessions = await readKvJson<AdminSessionRecord[]>(env.SHAHA_KV, KV_SESSIONS, []);
       if (sessionId === 'all') {
         sessions = [];
+        await writeKvJson(env.SHAHA_KV, KV_REVOKED_BEFORE, Date.now());
       } else {
         sessions = sessions.filter(s => s.id !== sessionId);
       }

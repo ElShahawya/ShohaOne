@@ -31,10 +31,18 @@ service cloud.firestore {
               incoming()[field] == existing().get(field, 0) + 1);
     }
 
+    function isOwner() {
+      return isSignedIn() &&
+             request.auth.token.email == 'devmedoandroid@gmail.com' &&
+             request.auth.token.email_verified == true;
+    }
+
     function isAdmin() {
-      return isSignedIn() && (
-        (request.auth.token.email == 'devmedoandroid@gmail.com' && request.auth.token.email_verified == true) ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      return isOwner() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.isActive == true &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role in ['admin', 'moderator']
       );
     }
 
@@ -159,8 +167,11 @@ service cloud.firestore {
     // Collections rules
 
     match /admins/{adminId} {
-      allow read: if isAdmin();
-      allow write: if false;
+      allow read: if isOwner() || (isSignedIn() && request.auth.uid == adminId);
+      allow create, update, delete: if isOwner() && isValidId(adminId) && (
+        request.method == 'delete' ||
+        (incoming().role in ['admin', 'moderator'] && incoming().isActive is bool)
+      );
     }
 
     match /categories/{categoryId} {
@@ -254,7 +265,7 @@ service cloud.firestore {
 
     match /verification_badges/{badgeId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidId(badgeId);
+      allow create, update, delete: if isOwner() && isValidId(badgeId);
     }
 
     match /humanitarian_requests/{requestId} {
@@ -281,8 +292,8 @@ service cloud.firestore {
 
     match /community_facebook_pages/{pageId} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidId(pageId) && isValidCommunityPage(incoming());
-      allow delete: if isAdmin() && isValidId(pageId);
+      allow create, update: if isOwner() && isValidId(pageId) && isValidCommunityPage(incoming());
+      allow delete: if isOwner() && isValidId(pageId);
     }
 
     match /claims/{claimId} {
@@ -321,7 +332,7 @@ service cloud.firestore {
 
     match /platform_credits/{creditId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidId(creditId);
+      allow create, update, delete: if isOwner() && isValidId(creditId);
     }
 
     match /mansoura_schedule/{scheduleId} {

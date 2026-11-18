@@ -309,6 +309,7 @@ export const MansouraEmergencySchedule: React.FC<MansouraEmergencyScheduleProps>
     try {
       const printWindow = window.open('', '_blank', 'width=850,height=900');
       if (printWindow) {
+        printWindow.opener = null;
         printWindow.document.open();
         printWindow.document.write(htmlContent);
         printWindow.document.close();
