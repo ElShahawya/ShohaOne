@@ -2133,12 +2133,15 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // ================= DYNAMIC VERIFICATION BADGES OPERATIONS =================
   const saveVerificationBadge = async (badge: Partial<VerificationBadge> & { id?: string }): Promise<boolean> => {
     const id = badge.id || 'vb_' + Date.now();
+    const cleanCustomUrl = typeof badge.customImageUrl === 'string' ? badge.customImageUrl.trim() : '';
     const payload: VerificationBadge = {
       id,
       nameAr: badge.nameAr || '',
       descriptionAr: badge.descriptionAr || '',
       color: badge.color || 'blue',
       icon: badge.icon || 'ShieldCheck',
+      shape: badge.shape || 'scalloped_circle',
+      ...(cleanCustomUrl ? { customImageUrl: cleanCustomUrl } : { customImageUrl: '' }),
       targetEntityTypes: badge.targetEntityTypes || ['person', 'shop', 'service', 'place'],
       priority: badge.priority ?? 5,
       isActive: badge.isActive ?? true,
@@ -2146,13 +2149,13 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       createdAt: badge.createdAt || new Date().toISOString()
     };
     try {
-      await setDoc(doc(db, 'verification_badges', id), payload, { merge: true });
+      await setDoc(doc(db, 'verification_badges', id), stripUndefined(payload as unknown as Record<string, unknown>), { merge: true });
     } catch {}
     setVerificationBadges(prev => {
       const exists = prev.some(b => b.id === id);
       const next = exists ? prev.map(b => b.id === id ? payload : b) : [...prev, payload];
       next.sort((a, b) => (b.priority || 0) - (a.priority || 0));
-      localStorage.setItem('shaha_badges_cache', JSON.stringify(next));
+      scheduleCacheWrite('shaha_badges_cache', next);
       return next;
     });
     logAdminAction('SAVE_BADGE', payload.nameAr, 'تم حفظ شارة التوثيق وتعديل خصائصها');
