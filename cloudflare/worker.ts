@@ -287,6 +287,52 @@ async function recordAdminSession(
   return id;
 }
 
+const ISOLATE_CACHE = new Map<string, { value: unknown; expiresAt: number }>();
+const ISOLATE_RATE_LIMIT = new Map<string, { count: number; resetAt: number }>();
+
+function getIsolateCache<T>(key: string): T | undefined {
+  const hit = ISOLATE_CACHE.get(key);
+  if (!hit) return undefined;
+  if (hit.expiresAt <= Date.now()) {
+    ISOLATE_CACHE.delete(key);
+    return undefined;
+  }
+  return hit.value as T;
+}
+
+function setIsolateCache(key: string, value: unknown, ttlMs = 30_000): void {
+  if (ISOLATE_CACHE.size > 100) {
+    ISOLATE_CACHE.clear();
+  }
+  ISOLATE_CACHE.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+
+function bustIsolateCache(key: string): void {
+  ISOLATE_CACHE.delete(key);
+}
+
+async function readKvCached<T>(
+  kv: KVNamespaceLike,
+  key: string,
+  fallback: T,
+  ttlMs = 30_000
+): Promise<T> {
+  const mem = getIsolateCache<T>(key);
+  if (mem !== undefined) return mem;
+  const val = await readKvJson<T>(kv, key, fallback);
+  setIsolateCache(key, val, ttlMs);
+  return val;
+}
+
+function getDefaultEdgeCache(): Cache | null {
+  try {
+    const cacheStorage = (globalThis as unknown as { caches?: { default?: Cache } }).caches;
+    return cacheStorage?.default ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveEffectiveAdmin(
   env: Env,
   token?: string
@@ -294,7 +340,7 @@ async function resolveEffectiveAdmin(
   const check = await verifyAdminToken(env.SESSION_SECRET, token);
   if (!check.valid || !check.payload) return { valid: false };
   const p = check.payload;
-  const revokedBefore = await readKvJson<number>(env.SHAHA_KV, KV_REVOKED_BEFORE, 0);
+  const revokedBefore = await readKvCached<number>(env.SHAHA_KV, KV_REVOKED_BEFORE, 0, 30_000);
   if (revokedBefore > 0 && (!p.iat || p.iat < revokedBefore)) {
     return { valid: false };
   }
@@ -513,7 +559,7 @@ async function getAuthStore(env: Env): Promise<AdminAuthStore> {
 
 async function getAdminMembers(env: Env): Promise<AdminMemberStore[]> {
   const ownerEmail = env.OWNER_EMAIL || 'devmedoandroid@gmail.com';
-  const members = await readKvJson<AdminMemberStore[]>(env.SHAHA_KV, KV_MEMBERS, []);
+  const members = await readKvCached<AdminMemberStore[]>(env.SHAHA_KV, KV_MEMBERS, [], 30_000);
   const idx = members.findIndex(m => m.email.toLowerCase() === ownerEmail.toLowerCase());
   if (idx === -1) {
     members.unshift({
@@ -526,6 +572,7 @@ async function getAdminMembers(env: Env): Promise<AdminMemberStore[]> {
       createdAt: new Date().toISOString()
     });
     await writeKvJson(env.SHAHA_KV, KV_MEMBERS, members);
+    setIsolateCache(KV_MEMBERS, members, 30_000);
   }
   return members;
 }
@@ -549,6 +596,7 @@ async function saveAdminMembers(env: Env, members: AdminMemberStore[]): Promise<
     members[ownerIdx].permissions = ALL_PERMISSIONS;
   }
   await writeKvJson(env.SHAHA_KV, KV_MEMBERS, members);
+  setIsolateCache(KV_MEMBERS, members, 30_000);
 }
 
 async function appendAuditLog(env: Env, record: Omit<AuditRecord, 'id' | 'timestamp'>): Promise<void> {
@@ -564,7 +612,7 @@ async function appendAuditLog(env: Env, record: Omit<AuditRecord, 'id' | 'timest
 }
 
 async function checkRateLimit(
-  env: Env,
+  _env: Env,
   prefix: string,
   ip: string,
   max: number,
@@ -572,17 +620,18 @@ async function checkRateLimit(
 ): Promise<{ allowed: boolean; retryAfterSec?: number }> {
   const key = `rl:${prefix}:${ip}`;
   const now = Date.now();
-  const current = await readKvJson<{ count: number; resetAt: number } | null>(env.SHAHA_KV, key, null);
+  if (ISOLATE_RATE_LIMIT.size > 2000) {
+    for (const [k, v] of ISOLATE_RATE_LIMIT.entries()) {
+      if (v.resetAt <= now) ISOLATE_RATE_LIMIT.delete(k);
+    }
+    if (ISOLATE_RATE_LIMIT.size > 2000) ISOLATE_RATE_LIMIT.clear();
+  }
+  const current = ISOLATE_RATE_LIMIT.get(key);
   if (!current || current.resetAt <= now) {
-    await env.SHAHA_KV.put(key, JSON.stringify({ count: 1, resetAt: now + windowSec * 1000 }), {
-      expirationTtl: Math.max(60, windowSec)
-    });
+    ISOLATE_RATE_LIMIT.set(key, { count: 1, resetAt: now + windowSec * 1000 });
     return { allowed: true };
   }
   current.count += 1;
-  await env.SHAHA_KV.put(key, JSON.stringify(current), {
-    expirationTtl: Math.max(60, Math.ceil((current.resetAt - now) / 1000))
-  });
   if (current.count > max) {
     return { allowed: false, retryAfterSec: Math.ceil((current.resetAt - now) / 1000) };
   }
@@ -708,7 +757,9 @@ export default {
         return jsonResponse(request, env, { error: 'كلمة المرور غير صحيحة' }, 401);
       }
 
-      await env.SHAHA_KV.put(rlKey, JSON.stringify({ count: 0, blockedUntil: 0 }), { expirationTtl: 60 });
+      if (record && record.count > 0) {
+        await env.SHAHA_KV.put(rlKey, JSON.stringify({ count: 0, blockedUntil: 0 }), { expirationTtl: 60 });
+      }
       const token = await generateAdminToken(
         env.SESSION_SECRET,
         'admin@shaha-directory.eg',
@@ -1073,11 +1124,25 @@ export default {
     }
 
     if (pathname === '/api/community-pages' && request.method === 'GET') {
-      const pages = await readKvJson<any[]>(env.SHAHA_KV, KV_COMMUNITY_PAGES, []);
+      const edgeCache = getDefaultEdgeCache();
+      const cacheKey = new Request(new URL('/api/community-pages', url.origin).toString(), { method: 'GET' });
+      if (edgeCache) {
+        const cachedRes = await edgeCache.match(cacheKey);
+        if (cachedRes) {
+          const clonedHeaders = buildSecurityHeaders(request, env);
+          clonedHeaders.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+          clonedHeaders.set('X-Shaha-Cache', 'EDGE-HIT');
+          clonedHeaders.delete('Pragma');
+          return new Response(cachedRes.body, { status: 200, headers: clonedHeaders });
+        }
+      }
+
+      const pages = await readKvCached<any[]>(env.SHAHA_KV, KV_COMMUNITY_PAGES, [], 60_000);
       const headers = buildSecurityHeaders(request, env);
-      headers.set('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
+      headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+      headers.set('X-Shaha-Cache', 'KV-WARM');
       headers.delete('Pragma');
-      return new Response(
+      const res = new Response(
         JSON.stringify({
           success: true,
           pages: pages
@@ -1086,6 +1151,10 @@ export default {
         }),
         { status: 200, headers }
       );
+      if (edgeCache) {
+        ctx.waitUntil(edgeCache.put(cacheKey, res.clone()));
+      }
+      return res;
     }
 
     if (pathname === '/api/community-pages/save' && request.method === 'POST') {
@@ -1137,6 +1206,12 @@ export default {
         store.push(sanitized);
       }
       await writeKvJson(env.SHAHA_KV, KV_COMMUNITY_PAGES, store);
+      setIsolateCache(KV_COMMUNITY_PAGES, store, 60_000);
+      const edgeCacheSave = getDefaultEdgeCache();
+      if (edgeCacheSave) {
+        const cacheKey = new Request(new URL('/api/community-pages', url.origin).toString(), { method: 'GET' });
+        ctx.waitUntil(edgeCacheSave.delete(cacheKey));
+      }
       ctx.waitUntil(
         appendAuditLog(env, {
           action: idx >= 0 ? 'UPDATE_COMMUNITY_PAGE' : 'CREATE_COMMUNITY_PAGE',
@@ -1164,6 +1239,12 @@ export default {
       const target = store.find(p => p.id === id);
       store = store.filter(p => p.id !== id);
       await writeKvJson(env.SHAHA_KV, KV_COMMUNITY_PAGES, store);
+      setIsolateCache(KV_COMMUNITY_PAGES, store, 60_000);
+      const edgeCacheSave = getDefaultEdgeCache();
+      if (edgeCacheSave) {
+        const cacheKey = new Request(new URL('/api/community-pages', url.origin).toString(), { method: 'GET' });
+        ctx.waitUntil(edgeCacheSave.delete(cacheKey));
+      }
       ctx.waitUntil(
         appendAuditLog(env, {
           action: 'DELETE_COMMUNITY_PAGE',
@@ -1176,11 +1257,56 @@ export default {
     }
 
     if (pathname === '/api/site-texts' && request.method === 'GET') {
-      const texts = await readKvJson<Record<string, string> | null>(env.SHAHA_KV, KV_SITE_TEXTS, null);
+      const edgeCache = getDefaultEdgeCache();
+      const cacheKey = new Request(new URL('/api/site-texts', url.origin).toString(), { method: 'GET' });
+      if (edgeCache) {
+        const cachedRes = await edgeCache.match(cacheKey);
+        if (cachedRes) {
+          const clonedHeaders = buildSecurityHeaders(request, env);
+          clonedHeaders.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+          clonedHeaders.set('X-Shaha-Cache', 'EDGE-HIT');
+          clonedHeaders.delete('Pragma');
+          return new Response(cachedRes.body, { status: 200, headers: clonedHeaders });
+        }
+      }
+
+      let texts = await readKvCached<Record<string, string> | null>(env.SHAHA_KV, KV_SITE_TEXTS, null, 60_000);
+      if (!texts) {
+        try {
+          const projectId = env.FIREBASE_PROJECT_ID || 'educational-43907';
+          const fsRes = await fetch(
+            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/site_settings/texts`
+          );
+          if (fsRes.ok) {
+            const fsDoc = (await fsRes.json()) as { fields?: Record<string, { stringValue?: string }> };
+            if (fsDoc?.fields && typeof fsDoc.fields === 'object') {
+              const parsed: Record<string, string> = {};
+              for (const [fKey, fVal] of Object.entries(fsDoc.fields)) {
+                if (typeof fVal?.stringValue === 'string' && fKey !== 'updatedAt') {
+                  parsed[fKey] = fVal.stringValue;
+                }
+              }
+              if (Object.keys(parsed).length > 0) {
+                texts = parsed;
+                setIsolateCache(KV_SITE_TEXTS, texts, 60_000);
+                ctx.waitUntil(env.SHAHA_KV.put(KV_SITE_TEXTS, JSON.stringify(texts), { expirationTtl: 3600 }));
+              }
+            }
+          }
+        } catch {
+          // Firestore fallback is best-effort
+        }
+      }
+
       const headers = buildSecurityHeaders(request, env);
       headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+      headers.set('X-Shaha-Cache', texts ? 'KV-WARM' : 'EMPTY');
       headers.delete('Pragma');
-      return new Response(JSON.stringify({ success: true, texts }), { status: 200, headers });
+      const res = new Response(JSON.stringify({ success: true, texts }), { status: 200, headers });
+      if (edgeCache && texts) {
+        ctx.waitUntil(edgeCache.put(cacheKey, res.clone()));
+      }
+      return res;
     }
 
     if (pathname === '/api/site-texts' && request.method === 'POST') {
@@ -1230,13 +1356,19 @@ export default {
         }
       }
 
-      await writeKvJson(env.SHAHA_KV, KV_SITE_TEXTS, sanitized);
+      await env.SHAHA_KV.put(KV_SITE_TEXTS, JSON.stringify(sanitized), { expirationTtl: 3600 });
+      setIsolateCache(KV_SITE_TEXTS, sanitized, 60_000);
+      const edgeCache = getDefaultEdgeCache();
+      if (edgeCache) {
+        const cacheKey = new Request(new URL('/api/site-texts', url.origin).toString(), { method: 'GET' });
+        ctx.waitUntil(edgeCache.delete(cacheKey));
+      }
       ctx.waitUntil(
         appendAuditLog(env, {
           action: 'UPDATE_SITE_TEXTS',
           adminUser: authCheck.payload.email,
           target: 'محتوى المنصة وعن قرية شها',
-          details: 'تحديث النصوص العامة وقسم عن قرية شها عبر السحابة'
+          details: 'تحديث النصوص العامة وقسم عن قرية شها (Firestore + KV Cache)'
         })
       );
       return jsonResponse(request, env, { success: true, texts: sanitized });
@@ -1475,7 +1607,9 @@ export default {
       let sessions = await readKvJson<AdminSessionRecord[]>(env.SHAHA_KV, KV_SESSIONS, []);
       if (sessionId === 'all') {
         sessions = [];
-        await writeKvJson(env.SHAHA_KV, KV_REVOKED_BEFORE, Date.now());
+        const revokedAt = Date.now();
+        await writeKvJson(env.SHAHA_KV, KV_REVOKED_BEFORE, revokedAt);
+        setIsolateCache(KV_REVOKED_BEFORE, revokedAt, 30_000);
       } else {
         sessions = sessions.filter(s => s.id !== sessionId);
       }
