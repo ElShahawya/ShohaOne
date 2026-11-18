@@ -2188,11 +2188,16 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const currentBadges = listing.verificationBadges || [];
     if (currentBadges.includes(badgeId)) return true;
 
+    const rawVerifierName = adminSession?.name?.trim() || currentUser?.displayName?.trim() || '';
+    const safeVerifierName = rawVerifierName && !rawVerifierName.includes('@')
+      ? rawVerifierName
+      : 'إدارة منصة شها ون';
+
     const newBadges = [...currentBadges, badgeId];
     const newEntry: VerificationAuditEntry = {
       badgeId,
       badgeName: badge.nameAr,
-      grantedBy: adminSession?.email || currentUser?.email || 'admin',
+      grantedBy: safeVerifierName,
       grantedAt: new Date().toISOString(),
       reason: reason || 'مراجعة وتوثيق رسمي من إدارة الدليل'
     };

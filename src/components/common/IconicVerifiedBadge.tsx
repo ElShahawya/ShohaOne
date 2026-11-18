@@ -233,7 +233,11 @@ export const IconicVerifiedBadge: React.FC<IconicVerifiedBadgeProps> = ({
                     <UserCheck className="w-3.5 h-3.5" />
                     <span>جهة الاعتماد:</span>
                   </span>
-                  <span>{audit.grantedBy || 'إدارة الدليل'}</span>
+                  <span>
+                    {audit.grantedBy && !audit.grantedBy.includes('@') && audit.grantedBy !== 'admin'
+                      ? audit.grantedBy
+                      : 'إدارة منصة شها ون'}
+                  </span>
                 </div>
 
                 {audit.grantedAt && (
