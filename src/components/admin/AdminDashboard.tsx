@@ -333,6 +333,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [banDurationDays, setBanDurationDays] = useState<number>(7);
   const [isBanning, setIsBanning] = useState(false);
 
+  const [selectedRequestIds, setSelectedRequestIds] = useState<string[]>([]);
+  const [bulkRequestConfirm, setBulkRequestConfirm] = useState<{ type: 'approve' | 'reject'; ids: string[] } | null>(null);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
   // Admin Management State
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
   const [editingAdminMember, setEditingAdminMember] = useState<AdminMember | null>(null);
@@ -1794,58 +1798,173 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* ================= TAB 3: REQUESTS ================= */}
         {activeAdminTab === 'requests' && (
           <div className="space-y-4">
-            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-              طلبات إضافة الأرقام والخدمات المقدمة من أهالي شها ({pendingRequests.length} طلب بانتظار المراجعة)
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                طلبات إضافة الأرقام والخدمات المقدمة من أهالي شها ({pendingRequests.length} طلب بانتظار المراجعة)
+              </h3>
+              {pendingRequests.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={selectedRequestIds.length > 0 && selectedRequestIds.length === pendingRequests.length}
+                      onChange={() => {
+                        if (selectedRequestIds.length === pendingRequests.length) {
+                          setSelectedRequestIds([]);
+                        } else {
+                          setSelectedRequestIds(pendingRequests.map(r => r.id));
+                        }
+                      }}
+                      className="w-4 h-4 accent-emerald-600 rounded"
+                    />
+                    <span>تحديد الكل ({pendingRequests.length})</span>
+                  </label>
+
+                  {selectedRequestIds.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setBulkRequestConfirm({ type: 'approve', ids: [...selectedRequestIds] })}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>موافقة ونشر المحدد ({selectedRequestIds.length})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBulkRequestConfirm({ type: 'reject', ids: [...selectedRequestIds] })}
+                        className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        <span>رفض المحدد ({selectedRequestIds.length})</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             {pendingRequests.length === 0 ? (
               <div className="bg-white dark:bg-slate-900 p-12 rounded-3xl text-center border border-slate-200 dark:border-slate-800">
                 <p className="text-sm text-slate-500 font-bold">لا توجد طلبات جديدة بانتظار الاعتماد حالياً.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {pendingRequests.map(req => (
-                  <div
-                    key={req.id}
-                    className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                          {categories.find(c => c.id === req.categoryId)?.nameAr || req.categoryId}
-                        </span>
-                        <span className="text-xs text-slate-400">مقدم من: {req.applicantName} ({req.applicantPhone})</span>
+                {pendingRequests.map(req => {
+                  const isSelected = selectedRequestIds.includes(req.id);
+                  return (
+                    <div
+                      key={req.id}
+                      className={`p-5 rounded-3xl bg-white dark:bg-slate-900 border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
+                        isSelected
+                          ? 'border-emerald-500 ring-2 ring-emerald-500/20'
+                          : 'border-slate-200 dark:border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            setSelectedRequestIds(prev =>
+                              prev.includes(req.id) ? prev.filter(id => id !== req.id) : [...prev, req.id]
+                            );
+                          }}
+                          aria-label={`تحديد ${req.serviceName}`}
+                          className="mt-1.5 w-4 h-4 accent-emerald-600 rounded cursor-pointer shrink-0"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              {categories.find(c => c.id === req.categoryId)?.nameAr || req.categoryId}
+                            </span>
+                            <span className="text-xs text-slate-400">مقدم من: {req.applicantName} ({req.applicantPhone})</span>
+                          </div>
+                          <h4 className="text-base font-black text-slate-900 dark:text-white">{req.serviceName}</h4>
+                          <p className="text-xs font-mono font-bold text-blue-600 mt-1">الهاتف: {req.phone}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">العنوان: {req.address}</p>
+                        </div>
                       </div>
-                      <h4 className="text-base font-black text-slate-900 dark:text-white">{req.serviceName}</h4>
-                      <p className="text-xs font-mono font-bold text-blue-600 mt-1">الهاتف: {req.phone}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">العنوان: {req.address}</p>
-                    </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={async () => {
-                          const ok = await approveServiceRequest(req);
-                          if (ok) onSuccessToast(`تم اعتماد وتوثيق ${req.serviceName} ونشره في الدليل فوراً`);
-                        }}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>اعتماد ونشر في الدليل</span>
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm('هل أنت متأكد من رفض هذا الطلب؟')) {
-                            await rejectServiceRequest(req.id);
-                            onSuccessToast('تم رفض الطلب');
-                          }
-                        }}
-                        className="px-3 py-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold cursor-pointer"
-                      >
-                        رفض
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={async () => {
+                            const ok = await approveServiceRequest(req);
+                            if (ok) {
+                              setSelectedRequestIds(prev => prev.filter(id => id !== req.id));
+                              onSuccessToast(`تم اعتماد وتوثيق ${req.serviceName} ونشره في الدليل فوراً`);
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>اعتماد ونشر في الدليل</span>
+                        </button>
+                        <button
+                          onClick={() => setBulkRequestConfirm({ type: 'reject', ids: [req.id] })}
+                          className="px-3 py-2 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold cursor-pointer"
+                        >
+                          رفض
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+            )}
+
+            {bulkRequestConfirm && (
+              <CustomModal
+                isOpen={true}
+                onClose={() => !isBulkProcessing && setBulkRequestConfirm(null)}
+                title={bulkRequestConfirm.type === 'approve' ? 'تأكيد الاعتماد الجماعي' : 'تأكيد الرفض'}
+              >
+                <div className="space-y-4 text-right" dir="rtl">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 font-bold leading-relaxed">
+                    {bulkRequestConfirm.type === 'approve'
+                      ? `هل تريد بالتأكيد اعتماد ونشر (${bulkRequestConfirm.ids.length}) طلب في الدليل العام الآن؟`
+                      : `هل تريد بالتأكيد رفض (${bulkRequestConfirm.ids.length}) طلب وإزالتها من قائمة الانتظار؟`}
+                  </p>
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={isBulkProcessing}
+                      onClick={() => setBulkRequestConfirm(null)}
+                      className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold cursor-pointer"
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBulkProcessing}
+                      onClick={async () => {
+                        setIsBulkProcessing(true);
+                        try {
+                          const targets = pendingRequests.filter(r => bulkRequestConfirm.ids.includes(r.id));
+                          if (bulkRequestConfirm.type === 'approve') {
+                            await Promise.allSettled(targets.map(r => approveServiceRequest(r)));
+                            onSuccessToast(`تم اعتماد ونشر ${targets.length} طلب بنجاح`);
+                          } else {
+                            await Promise.allSettled(bulkRequestConfirm.ids.map(id => rejectServiceRequest(id)));
+                            onSuccessToast(`تم رفض ${bulkRequestConfirm.ids.length} طلب بنجاح`);
+                          }
+                          setSelectedRequestIds(prev => prev.filter(id => !bulkRequestConfirm.ids.includes(id)));
+                          setBulkRequestConfirm(null);
+                        } finally {
+                          setIsBulkProcessing(false);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-xl text-white text-xs font-bold cursor-pointer ${
+                        bulkRequestConfirm.type === 'approve'
+                          ? 'bg-emerald-600 hover:bg-emerald-700'
+                          : 'bg-red-600 hover:bg-red-700'
+                      }`}
+                    >
+                      {isBulkProcessing ? 'جارٍ التنفيذ…' : 'تأكيد التنفيذ'}
+                    </button>
+                  </div>
+                </div>
+              </CustomModal>
             )}
           </div>
         )}

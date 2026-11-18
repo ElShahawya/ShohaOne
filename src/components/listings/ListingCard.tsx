@@ -1,5 +1,6 @@
 // DevMeDoAnDrOiD
 import React, { useState, useEffect, memo } from 'react';
+import { SmartImage } from '../common/SmartImage';
 import {
   Phone,
   MessageCircle,
@@ -123,15 +124,11 @@ export const ListingCard: React.FC<ListingCardProps> = memo(({
         <div className="flex items-start gap-3.5 mb-3.5">
           {listing.imageUrl ? (
             <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shadow-xs group-hover:scale-105 transition-transform">
-              <img
+              <SmartImage
                 src={listing.imageUrl}
                 alt={listing.name}
                 className="w-full h-full object-cover"
-                loading="lazy"
-                decoding="async"
-                onError={(e) => {
-                  (e.currentTarget.parentElement as HTMLElement).style.display = 'none';
-                }}
+                fallback={<CategoryIconBadge categoryId={listing.categoryId} size="md" className="w-full h-full" />}
               />
               {listing.isVerified && (
                 <div className="absolute bottom-0 left-0 bg-emerald-600 text-white p-0.5 rounded-tr-md">
