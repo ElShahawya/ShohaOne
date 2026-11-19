@@ -436,8 +436,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               <div
                 className={`relative overflow-hidden border backdrop-blur-2xl shadow-2xl transition-all ${
                   isAppMode
-                    ? 'rounded-[2rem] bg-white/92 dark:bg-slate-900/92 border-slate-200/90 dark:border-slate-800/90 p-6 sm:p-8'
-                    : 'rounded-[2rem] bg-white/88 dark:bg-slate-900/88 border-slate-200/80 dark:border-slate-800/80 p-6 sm:p-8 xl:p-9'
+                    ? 'rounded-3xl sm:rounded-[2rem] bg-white/92 dark:bg-slate-900/92 border-slate-200/90 dark:border-slate-800/90 p-5 sm:p-8'
+                    : 'rounded-3xl sm:rounded-[2rem] bg-white/88 dark:bg-slate-900/88 border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-8 xl:p-9'
                 }`}
               >
                 {/* Top Subtle Accent Line */}

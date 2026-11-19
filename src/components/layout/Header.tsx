@@ -8,6 +8,7 @@ import {
   Moon,
   Sun,
   ShieldCheck,
+  Lock,
   LogIn,
   LogOut,
   Menu,
@@ -653,21 +654,35 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void handleGoogleSignIn();
-                  }}
-                  disabled={googleLoading}
-                  className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-bold text-slate-800 shadow-xs transition-colors hover:border-blue-400 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 cursor-pointer"
-                >
-                  {googleLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-700 dark:text-blue-300" aria-hidden="true" />
-                  ) : (
-                    <LogIn className="h-5 w-5 text-blue-700 dark:text-blue-300" aria-hidden="true" />
-                  )}
-                  <span>{googleLoading ? 'جارٍ الاتصال بـ Google…' : 'تسجيل الدخول بـ Google'}</span>
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleGoogleSignIn();
+                    }}
+                    disabled={googleLoading}
+                    className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-bold text-slate-800 shadow-xs transition-colors hover:border-blue-400 disabled:cursor-wait disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 cursor-pointer"
+                  >
+                    {googleLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-700 dark:text-blue-300" aria-hidden="true" />
+                    ) : (
+                      <LogIn className="h-5 w-5 text-blue-700 dark:text-blue-300" aria-hidden="true" />
+                    )}
+                    <span>{googleLoading ? 'جارٍ الاتصال بـ Google…' : 'تسجيل الدخول بـ Google'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      onOpenAdminLogin();
+                    }}
+                    className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>بوابة دخول الإدارة والمشرف</span>
+                  </button>
+                </div>
               )}
 
               <p className="mt-2 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
