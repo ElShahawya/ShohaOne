@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Search,
   X,
@@ -16,26 +16,7 @@ import {
 import { useDirectory } from '../../context/DirectoryContext';
 import { matchesQuery, matchesPhone } from '../../utils/search';
 import { CategoryIconBadge } from '../common/CategoryIcon';
-import { scheduleIdleTask } from '../../lib/net';
 import { Listing } from '../../types';
-
-const VillageMeridianCanvas = lazy(() =>
-  import('./VillageMeridianCanvas').then(m => ({ default: m.VillageMeridianCanvas }))
-);
-
-function shouldEnableHero3D(): boolean {
-  if (typeof window === 'undefined') return false;
-  if (window.innerWidth < 768) return false;
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
-  const nav = navigator as Navigator & {
-    deviceMemory?: number;
-    connection?: { saveData?: boolean };
-  };
-  if (nav.connection?.saveData) return false;
-  if (typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4) return false;
-  if (typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4) return false;
-  return true;
-}
 
 interface HeroSearchProps {
   searchQuery: string;
@@ -52,15 +33,9 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
   onSelectCategory,
   onOpenAddService
 }) => {
-  const { listings, categories, bloodDonors } = useDirectory();
+  const { listings, categories } = useDirectory();
   const [internalQuery, setInternalQuery] = useState(searchQuery || '');
   const [isFocused, setIsFocused] = useState(false);
-  const [canvasReady, setCanvasReady] = useState(false);
-
-  useEffect(() => {
-    if (!shouldEnableHero3D()) return;
-    return scheduleIdleTask(() => setCanvasReady(true), 1200);
-  }, []);
 
   // Synchronize internal state if parent prop changes
   useEffect(() => {
@@ -125,13 +100,10 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
 
   return (
     <div
-      className="relative px-3 sm:px-8 pt-6 pb-8 sm:pt-9 sm:pb-11 text-center isolate overflow-hidden rounded-3xl sm:rounded-[2rem] border border-emerald-900/10 dark:border-emerald-400/10 bg-gradient-to-b from-white/95 via-emerald-50/35 to-white/90 dark:from-slate-900/95 dark:via-emerald-950/20 dark:to-slate-900/90 shadow-sm animate-fade-in"
+      className="relative px-3 sm:px-8 pt-6 pb-6 sm:pt-8 sm:pb-8 text-center isolate overflow-hidden rounded-3xl sm:rounded-[2rem] border border-emerald-900/10 dark:border-emerald-400/10 bg-gradient-to-b from-white via-emerald-50/35 to-white dark:from-slate-900 dark:via-emerald-950/20 dark:to-slate-900 shadow-sm animate-reveal-up"
     >
       <div className="absolute inset-0 -z-20 brand-pattern opacity-[0.035] dark:opacity-[0.06] pointer-events-none" />
-      <Suspense fallback={null}>
-        {canvasReady && <VillageMeridianCanvas />}
-      </Suspense>
-      <div className="relative inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50/95 dark:bg-emerald-950/70 border border-emerald-200/80 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-bold mb-4 shadow-2xs backdrop-blur-sm">
+      <div className="relative inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200/80 dark:border-emerald-800/70 text-emerald-800 dark:text-emerald-300 text-xs sm:text-sm font-bold mb-4 shadow-2xs">
         <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
         <span>SHAHA ONE | المنصة الرقمية المتكاملة لأهالي شها</span>
       </div>
@@ -265,33 +237,6 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
             </button>
           );
         })}
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 max-w-3xl mx-auto mt-6 sm:mt-8">
-        <div className="p-3 sm:p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 text-center shadow-2xs hover:border-teal-400 transition-colors">
-          <span className="font-display tabular-nums text-xl sm:text-2xl font-black text-teal-700 dark:text-teal-400">
-            {categories.length}
-          </span>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-0.5">قسم خدمي</p>
-        </div>
-        <div className="p-3 sm:p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 text-center shadow-2xs hover:border-emerald-400 transition-colors">
-          <span className="font-display tabular-nums text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400">
-            {listings.length}
-          </span>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-0.5">رقم وخدمة مسجلة</p>
-        </div>
-        <div className="p-3 sm:p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 text-center shadow-2xs hover:border-rose-400 transition-colors">
-          <span className="font-display tabular-nums text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400">
-            {bloodDonors.length}
-          </span>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-0.5">متبرع بالدم</p>
-        </div>
-        <div className="p-3 sm:p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 text-center shadow-2xs hover:border-amber-400 transition-colors">
-          <span className="font-display tabular-nums text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400">
-            100%
-          </span>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-0.5">بيانات مدققة ومجانية</p>
-        </div>
       </div>
     </div>
   );

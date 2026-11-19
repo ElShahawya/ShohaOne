@@ -291,6 +291,36 @@ async function recordAdminSession(
 
 const ISOLATE_CACHE = new Map<string, { value: unknown; expiresAt: number }>();
 const ISOLATE_RATE_LIMIT = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_FAILURES = new Map<string, { count: number; blockedUntil: number }>();
+
+function checkLoginBruteForce(ip: string): { allowed: boolean; waitMinutes: number } {
+  const now = Date.now();
+  if (LOGIN_FAILURES.size > 1000) {
+    for (const [k, v] of LOGIN_FAILURES.entries()) {
+      if (v.blockedUntil <= now) LOGIN_FAILURES.delete(k);
+    }
+    if (LOGIN_FAILURES.size > 1000) LOGIN_FAILURES.clear();
+  }
+  const rec = LOGIN_FAILURES.get(ip);
+  if (rec && rec.blockedUntil > now) {
+    return { allowed: false, waitMinutes: Math.ceil((rec.blockedUntil - now) / 60000) };
+  }
+  return { allowed: true, waitMinutes: 0 };
+}
+
+function recordLoginFailure(ip: string): void {
+  const now = Date.now();
+  const rec = LOGIN_FAILURES.get(ip);
+  const nextCount = (rec && rec.blockedUntil <= now ? rec.count : 0) + 1;
+  LOGIN_FAILURES.set(ip, {
+    count: nextCount,
+    blockedUntil: nextCount >= 5 ? now + 15 * 60 * 1000 : 0
+  });
+}
+
+function clearLoginFailure(ip: string): void {
+  LOGIN_FAILURES.delete(ip);
+}
 
 function getIsolateCache<T>(key: string): T | undefined {
   const hit = ISOLATE_CACHE.get(key);
@@ -738,14 +768,12 @@ export default {
     }
 
     if (pathname === '/api/admin/login' && request.method === 'POST') {
-      const rlKey = `login_fail:${ip}`;
-      const record = await readKvJson<{ count: number; blockedUntil: number } | null>(env.SHAHA_KV, rlKey, null);
-      if (record && record.blockedUntil > Date.now()) {
-        const waitMinutes = Math.ceil((record.blockedUntil - Date.now()) / 60000);
+      const bf = checkLoginBruteForce(ip);
+      if (!bf.allowed) {
         return jsonResponse(
           request,
           env,
-          { error: `تم تجاوز الحد الأقصى للمحاولات الخاطئة. يرجى الانتظار ${waitMinutes} دقيقة.` },
+          { error: `تم تجاوز الحد الأقصى للمحاولات الخاطئة. يرجى الانتظار ${bf.waitMinutes} دقيقة.` },
           429
         );
       }
@@ -759,12 +787,7 @@ export default {
       const store = await getAuthStore(env);
       const isValid = await verifyPassword(password, store.salt, store.hash);
       if (!isValid) {
-        const nextCount = (record?.count || 0) + 1;
-        const nextRec = {
-          count: nextCount,
-          blockedUntil: nextCount >= 5 ? Date.now() + 15 * 60 * 1000 : 0
-        };
-        await env.SHAHA_KV.put(rlKey, JSON.stringify(nextRec), { expirationTtl: 900 });
+        recordLoginFailure(ip);
         ctx.waitUntil(
           appendAuditLog(env, {
             action: 'LOGIN_FAILED',
@@ -775,9 +798,7 @@ export default {
         return jsonResponse(request, env, { error: 'كلمة المرور غير صحيحة' }, 401);
       }
 
-      if (record && record.count > 0) {
-        await env.SHAHA_KV.put(rlKey, JSON.stringify({ count: 0, blockedUntil: 0 }), { expirationTtl: 60 });
-      }
+      clearLoginFailure(ip);
       const token = await generateAdminToken(
         env.SESSION_SECRET,
         'admin@shaha-directory.eg',
@@ -1036,17 +1057,35 @@ export default {
     }
 
     if (pathname === '/api/listings' && request.method === 'GET') {
-      const listings = await readKvJson<any[]>(env.SHAHA_KV, KV_LISTINGS, []);
+      const edgeCache = getDefaultEdgeCache();
+      const cacheKey = new Request(new URL('/api/listings', url.origin).toString(), { method: 'GET' });
+      if (edgeCache) {
+        const cachedRes = await edgeCache.match(cacheKey);
+        if (cachedRes) {
+          const clonedHeaders = buildSecurityHeaders(request, env);
+          clonedHeaders.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+          clonedHeaders.set('X-Shaha-Cache', 'EDGE-HIT');
+          clonedHeaders.delete('Pragma');
+          return new Response(cachedRes.body, { status: 200, headers: clonedHeaders });
+        }
+      }
+
+      const listings = await readKvCached<any[]>(env.SHAHA_KV, KV_LISTINGS, [], 60_000);
       const headers = buildSecurityHeaders(request, env);
-      headers.set('Cache-Control', 'public, max-age=15, s-maxage=45');
+      headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+      headers.set('X-Shaha-Cache', listings.length > 0 ? 'KV-WARM' : 'EMPTY');
       headers.delete('Pragma');
-      return new Response(
+      const response = new Response(
         JSON.stringify({
           success: true,
           listings: listings.filter(l => l && l.status !== 'hidden')
         }),
         { status: 200, headers }
       );
+      if (edgeCache && listings.length > 0) {
+        ctx.waitUntil(edgeCache.put(cacheKey, response.clone()));
+      }
+      return response;
     }
 
     if (pathname === '/api/listings/save' && request.method === 'POST') {
@@ -1102,6 +1141,12 @@ export default {
       }
 
       await writeKvJson(env.SHAHA_KV, KV_LISTINGS, store);
+      bustIsolateCache(KV_LISTINGS);
+      const edgeCacheSave = getDefaultEdgeCache();
+      if (edgeCacheSave) {
+        const cacheKey = new Request(new URL('/api/listings', url.origin).toString(), { method: 'GET' });
+        ctx.waitUntil(edgeCacheSave.delete(cacheKey));
+      }
       const actor = adminCheck.valid ? adminCheck.payload!.email : `owner:${verifiedOwnerUid}`;
       ctx.waitUntil(
         appendAuditLog(env, {
@@ -1130,6 +1175,12 @@ export default {
       const target = store.find(l => l.id === id);
       store = store.filter(l => l.id !== id);
       await writeKvJson(env.SHAHA_KV, KV_LISTINGS, store);
+      bustIsolateCache(KV_LISTINGS);
+      const edgeCacheSave = getDefaultEdgeCache();
+      if (edgeCacheSave) {
+        const cacheKey = new Request(new URL('/api/listings', url.origin).toString(), { method: 'GET' });
+        ctx.waitUntil(edgeCacheSave.delete(cacheKey));
+      }
       ctx.waitUntil(
         appendAuditLog(env, {
           action: 'DELETE_LISTING',
@@ -1307,7 +1358,7 @@ export default {
               if (Object.keys(parsed).length > 0) {
                 texts = parsed;
                 setIsolateCache(KV_SITE_TEXTS, texts, 60_000);
-                ctx.waitUntil(env.SHAHA_KV.put(KV_SITE_TEXTS, JSON.stringify(texts), { expirationTtl: 3600 }));
+                ctx.waitUntil(env.SHAHA_KV.put(KV_SITE_TEXTS, JSON.stringify(texts)));
               }
             }
           }

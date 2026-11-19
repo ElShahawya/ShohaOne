@@ -13,7 +13,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { db, auth, loginWithGoogle, completeGoogleRedirect, logoutUser, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, loginWithGoogle, completeGoogleRedirect, loginWithEmailPassword, registerWithEmailPassword, logoutUser, handleFirestoreError, OperationType } from '../lib/firebase';
 import { apiUrl, fetchWithTimeout, scheduleIdleTask, stripUndefined, withTimeout } from '../lib/net';
 import { isOwnerEmail } from '../lib/security';
 import { offlineQueue } from '../lib/offlineQueue';
@@ -107,10 +107,12 @@ interface DirectoryContextType {
   hasPermission: (perm: AdminPermission) => boolean;
   isInitializing: boolean;
   theme: 'light' | 'dark';
-  toggleTheme: () => void;
+  toggleTheme: (e?: { clientX?: number; clientY?: number }) => void;
 
   // Actions
   signInWithGoogle: () => Promise<GoogleSignInResult>;
+  signInWithEmail: (email: string, pass: string) => Promise<{ success: boolean; error?: string; user?: User }>;
+  signUpWithEmail: (email: string, pass: string, name: string) => Promise<{ success: boolean; error?: string; user?: User }>;
   signOut: () => Promise<void>;
   adminLogin: (password: string) => Promise<{ success: boolean; mustChangePassword?: boolean; error?: string }>;
   adminLogout: () => void;
@@ -482,24 +484,69 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('shaha_theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prev => {
-      const nextTheme = prev === 'light' ? 'dark' : 'light';
-      const root = document.documentElement;
-      if (nextTheme === 'dark') {
-        root.classList.add('dark');
-        root.setAttribute('data-theme', 'dark');
-        root.style.colorScheme = 'dark';
-        document.body?.classList.add('dark');
-      } else {
-        root.classList.remove('dark');
-        root.setAttribute('data-theme', 'light');
-        root.style.colorScheme = 'light';
-        document.body?.classList.remove('dark');
-      }
-      localStorage.setItem('shaha_theme', nextTheme);
-      return nextTheme;
+  const applyThemeDom = (nextTheme: 'light' | 'dark') => {
+    const root = document.documentElement;
+    if (nextTheme === 'dark') {
+      root.classList.add('dark');
+      root.setAttribute('data-theme', 'dark');
+      root.style.colorScheme = 'dark';
+      document.body?.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+      root.setAttribute('data-theme', 'light');
+      root.style.colorScheme = 'light';
+      document.body?.classList.remove('dark');
+    }
+    localStorage.setItem('shaha_theme', nextTheme);
+    setTheme(nextTheme);
+  };
+
+  const toggleTheme = (e?: { clientX?: number; clientY?: number }) => {
+    const nextTheme: 'light' | 'dark' = theme === 'light' ? 'dark' : 'light';
+    const doc = document as Document & {
+      startViewTransition?: (callback: () => void) => { ready: Promise<void> };
+    };
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+    if (!doc.startViewTransition || prefersReduced) {
+      document.documentElement.classList.add('theme-transitioning');
+      applyThemeDom(nextTheme);
+      window.setTimeout(() => {
+        document.documentElement.classList.remove('theme-transitioning');
+      }, 300);
+      return;
+    }
+
+    const x = typeof e?.clientX === 'number' ? e.clientX : window.innerWidth / 2;
+    const y = typeof e?.clientY === 'number' ? e.clientY : window.innerHeight / 2;
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    const transition = doc.startViewTransition(() => {
+      applyThemeDom(nextTheme);
     });
+
+    transition.ready
+      .then(() => {
+        document.documentElement.animate(
+          {
+            clipPath: [
+              `circle(0px at ${x}px ${y}px)`,
+              `circle(${endRadius}px at ${x}px ${y}px)`
+            ]
+          },
+          {
+            duration: 420,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+            pseudoElement: '::view-transition-new(root)'
+          }
+        );
+      })
+      .catch(() => {});
   };
 
   // Verify an admin/moderator Google account with the server and persist the session.
@@ -1221,6 +1268,28 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     const isAdmin = await verifyAdminAccess(user);
     return { user, isAdmin };
+  };
+
+  const signInWithEmailAction = async (email: string, pass: string): Promise<{ success: boolean; error?: string; user?: User }> => {
+    try {
+      const user = await loginWithEmailPassword(email, pass);
+      setCurrentUser(user);
+      await verifyAdminAccess(user);
+      return { success: true, user };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'فشل تسجيل الدخول' };
+    }
+  };
+
+  const signUpWithEmailAction = async (email: string, pass: string, name: string): Promise<{ success: boolean; error?: string; user?: User }> => {
+    try {
+      const user = await registerWithEmailPassword(email, pass, name);
+      setCurrentUser(user);
+      await verifyAdminAccess(user);
+      return { success: true, user };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'فشل إنشاء الحساب' };
+    }
   };
 
   const signOutAction = async () => {
@@ -3242,6 +3311,8 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toggleTheme,
 
         signInWithGoogle: signInWithGoogleAction,
+        signInWithEmail: signInWithEmailAction,
+        signUpWithEmail: signUpWithEmailAction,
         signOut: signOutAction,
         adminLogin,
         adminLogout,

@@ -118,7 +118,7 @@ function DirectoryMain() {
       void import('./pages/NewsPage');
       void import('./pages/EmergencyPage');
       void import('./pages/AboutPage');
-    }, 1800);
+    }, 3500);
   }, []);
 
   const handleCopyPhone = (phone: string) => {

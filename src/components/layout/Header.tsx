@@ -1,5 +1,6 @@
 // DevMeDoAnDrOiD
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   PhoneCall,
   PlusCircle,
@@ -8,7 +9,6 @@ import {
   Moon,
   Sun,
   ShieldCheck,
-  Lock,
   LogIn,
   LogOut,
   Menu,
@@ -150,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-[#FAF8F3]/95 shadow-xs backdrop-blur-xl transition-colors dark:border-slate-800/85 dark:bg-[#0B0F17]/95">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/85 bg-[#FAF8F3] shadow-xs transition-colors dark:border-slate-800/90 dark:bg-[#0B0F17]">
         <div className="h-[3px] w-full bg-gradient-to-r from-[#0F766E] via-emerald-500 to-amber-400" aria-hidden="true" />
         <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-2 py-2 sm:gap-4 sm:py-2.5">
@@ -206,16 +206,23 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Theme */}
               <button
                 type="button"
-                onClick={toggleTheme}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-700 shadow-2xs transition-all hover:bg-slate-100 active:scale-95 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                onClick={(e) => toggleTheme(e)}
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-700 shadow-2xs transition-all hover:bg-slate-100 active:scale-90 dark:border-slate-700 dark:bg-slate-800/90 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer overflow-hidden"
                 title={theme === 'dark' ? 'التحويل للوضع النهاري' : 'التحويل للوضع الليلي'}
                 aria-label="تبديل المظهر النهاري والليلي"
               >
-                {theme === 'dark' ? (
-                  <Sun className="h-4 w-4 text-amber-400" aria-hidden="true" />
-                ) : (
-                  <Moon className="h-4 w-4 text-slate-700 dark:text-slate-200" aria-hidden="true" />
-                )}
+                <Sun
+                  className={`h-4 w-4 text-amber-400 absolute transition-all duration-300 ${
+                    theme === 'dark' ? 'scale-100 rotate-0 opacity-100' : 'scale-0 -rotate-90 opacity-0'
+                  }`}
+                  aria-hidden="true"
+                />
+                <Moon
+                  className={`h-4 w-4 text-slate-700 dark:text-slate-200 absolute transition-all duration-300 ${
+                    theme === 'light' ? 'scale-100 rotate-0 opacity-100' : 'scale-0 rotate-90 opacity-0'
+                  }`}
+                  aria-hidden="true"
+                />
               </button>
 
               {/* Primary add CTA (bottom nav covers phones) */}
@@ -320,24 +327,34 @@ export const Header: React.FC<HeaderProps> = ({
       </header>
 
       {/* Slide-over navigation drawer */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in"
-            onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
-          />
+      <AnimatePresence>
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-slate-950/60"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
 
-          <aside
-            id="main-navigation-drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="mobile-menu-title"
-            className="relative z-10 flex h-full w-full max-w-[22rem] flex-col justify-between overflow-y-auto bg-white text-right shadow-2xl animate-in slide-in-from-right duration-300 dark:bg-slate-900"
-          >
-            <div>
-              {/* Drawer header */}
-              <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-800 sm:p-5">
+            <motion.aside
+              id="main-navigation-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mobile-menu-title"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 36 }}
+              className="relative z-10 flex h-full w-full max-w-[21.5rem] flex-col justify-between overflow-y-auto bg-white text-right shadow-2xl dark:bg-slate-900 will-change-transform"
+            >
+              <div>
+                <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500" />
+                {/* Drawer header */}
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-800 sm:p-5">
                 <div className="flex min-w-0 items-center gap-3">
                   <BrandMark size="sm" />
                   <div className="min-w-0">
@@ -546,7 +563,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                 <button
                   type="button"
-                  onClick={toggleTheme}
+                  onClick={(e) => toggleTheme(e)}
                   className="flex min-h-[52px] w-full items-center justify-between gap-3 rounded-2xl border border-slate-200/60 px-4 py-3 text-right text-[15px] font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800/60 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   <span className="flex items-center gap-3">
@@ -677,10 +694,10 @@ export const Header: React.FC<HeaderProps> = ({
                       setSidebarOpen(false);
                       onOpenAdminLogin();
                     }}
-                    className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                    className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-xs font-bold text-emerald-800 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 transition-colors cursor-pointer"
                   >
-                    <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>بوابة دخول الإدارة والمشرف</span>
+                    <LogIn className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>تسجيل الدخول أو إنشاء حساب</span>
                   </button>
                 </div>
               )}
@@ -689,9 +706,10 @@ export const Header: React.FC<HeaderProps> = ({
                 منصة شها ون الرسمية © {new Date().getFullYear()}
               </p>
             </div>
-          </aside>
-        </div>
-      )}
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
