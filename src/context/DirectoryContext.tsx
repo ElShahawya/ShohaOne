@@ -230,6 +230,9 @@ interface DirectoryContextType {
   updateAdminMember: (id: string, updates: Partial<AdminMember>) => Promise<boolean>;
   deleteAdminMember: (id: string) => Promise<boolean>;
 
+  // Data Sync & Refresh
+  refreshData: () => Promise<void>;
+
   // PWA & Connectivity
   isOnline: boolean;
   isInstallable: boolean;
@@ -1018,6 +1021,78 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       stopTier1?.();
     };
   }, [isAdmin]);
+
+  const refreshData = useCallback(async (): Promise<void> => {
+    try {
+      localStorage.removeItem('shaha_tier1_sync_ts');
+
+      const tasks: Promise<any>[] = [
+        getDocs(collection(db, 'categories')).then(catSnap => {
+          if (!catSnap.empty) {
+            const list: Category[] = [];
+            catSnap.forEach(docSnap => list.push({ ...docSnap.data(), id: docSnap.id } as Category));
+            list.sort((a, b) => a.order - b.order);
+            setCategories(list);
+            scheduleCacheWrite('shaha_categories_cache', list);
+          }
+        }).catch(() => null),
+        getDocs(collection(db, 'emergency_numbers')).then(emSnap => {
+          if (!emSnap.empty) {
+            const list: EmergencyNumber[] = [];
+            emSnap.forEach(docSnap => list.push({ ...docSnap.data(), id: docSnap.id } as EmergencyNumber));
+            list.sort((a, b) => a.order - b.order);
+            setEmergencyNumbers(list);
+            scheduleCacheWrite('shaha_emergency_cache', list);
+          }
+        }).catch(() => null),
+        getDocs(collection(db, 'listings')).then(listSnap => {
+          if (listSnap && !listSnap.empty) {
+            const list: Listing[] = [];
+            listSnap.forEach(docSnap => list.push({ ...docSnap.data(), id: docSnap.id } as Listing));
+            setListings(list);
+            scheduleCacheWrite('shaha_listings_cache', list);
+          }
+        }).catch(() => null),
+        getDocs(collection(db, 'advertisements')).then(adsSnap => {
+          if (adsSnap && !adsSnap.empty) {
+            const list: Advertisement[] = [];
+            adsSnap.forEach(docSnap => list.push({ ...docSnap.data(), id: docSnap.id } as Advertisement));
+            list.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+            setAdvertisements(list);
+            scheduleCacheWrite('shaha_ads_cache', list);
+          }
+        }).catch(() => null),
+        getDocs(collection(db, 'village_news')).then(newsSnap => {
+          if (newsSnap && !newsSnap.empty) {
+            const list: VillageNews[] = [];
+            newsSnap.forEach(docSnap => list.push({ ...docSnap.data(), id: docSnap.id } as VillageNews));
+            list.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+            setVillageNews(list);
+            scheduleCacheWrite('shaha_news_cache', list);
+          }
+        }).catch(() => null),
+        getDocs(collection(db, 'community_facebook_pages')).then(pagesSnap => {
+          if (pagesSnap && !pagesSnap.empty) {
+            const list: CommunityFacebookPage[] = [];
+            pagesSnap.forEach(docSnap => list.push({ ...docSnap.data(), id: docSnap.id } as CommunityFacebookPage));
+            const sorted = list.sort((a, b) => (a.order || 0) - (b.order || 0));
+            setCommunityPages(sorted);
+            scheduleCacheWrite('shaha_pages_cache', sorted);
+          }
+        }).catch(() => null),
+        fetch(apiUrl('/api/site-texts')).then(res => res.json()).then(data => {
+          if (data?.success && data?.texts) {
+            window.dispatchEvent(new CustomEvent('shaha_texts_updated', { detail: data.texts }));
+          }
+        }).catch(() => null)
+      ];
+
+      await Promise.allSettled(tasks);
+      localStorage.setItem('shaha_tier1_sync_ts', String(Date.now()));
+    } catch (err) {
+      console.warn('Manual refresh notice:', err);
+    }
+  }, []);
 
   // Admin listeners for service_requests, reports, and admin_messages when admin is logged in
   useEffect(() => {
@@ -3260,6 +3335,7 @@ export const DirectoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         syncSeedDataToFirestore,
         logAdminAction,
         refreshAuditLogs,
+        refreshData,
 
         fetchUsers,
         banUser,

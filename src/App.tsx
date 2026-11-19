@@ -36,6 +36,8 @@ import { NetworkStatusBanner } from './components/common/NetworkStatusBanner';
 import { ScrollToTopButton } from './components/common/ScrollToTopButton';
 import { ListingGridSkeleton, ListingDetailSkeleton } from './components/common/SkeletonLoaders';
 import { recordRecentlyViewed } from './components/common/RecentlyViewedBar';
+import { SplashScreen, shouldShowSplashScreen } from './components/common/SplashScreen';
+import { PullToRefresh } from './components/common/PullToRefresh';
 
 // Utilities
 import { AppRoute, parseCurrentRoute, navigateTo, updateSeoMeta } from './utils/navigation';
@@ -44,7 +46,8 @@ import { Listing, AdminMessageTopic } from './types';
 import { ShieldCheck, X, AlertTriangle, Smartphone } from 'lucide-react';
 
 function DirectoryMain() {
-  const { isAdmin, isOnline, isInitializing, listings } = useDirectory();
+  const { isAdmin, isOnline, isInitializing, listings, refreshData } = useDirectory();
+  const [showInitialSplash, setShowInitialSplash] = useState(() => shouldShowSplashScreen());
   const [splashTimedOut, setSplashTimedOut] = useState(false);
 
   useEffect(() => {
@@ -321,34 +324,12 @@ function DirectoryMain() {
     else if (tab === 'admin') navigateTo({ page: 'admin' });
   };
 
-  const showSplash = isInitializing && listings.length === 0 && !splashTimedOut;
-
-  if (showSplash) {
-    return (
-      <div
-        dir="rtl"
-        className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 px-6"
-      >
-        <div className="flex flex-col items-center gap-4 text-center animate-fade-in">
-          <img src="./brand-icon.svg" alt="شها ون" className="w-16 h-16 rounded-2xl shadow-lg" />
-          <div className="space-y-1">
-            <h1 className="text-xl font-black tracking-tight text-emerald-700 dark:text-emerald-400">
-              شها ون | SHAHA ONE
-            </h1>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              جارٍ تجهيز الدليل والخدمات…
-            </p>
-          </div>
-          <div className="w-40 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-            <div className="h-full w-1/2 rounded-full bg-emerald-600 animate-pulse" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
+      {/* Silicon Valley Grade Initial Splash Screen (First Launch Only) */}
+      {showInitialSplash && (
+        <SplashScreen onComplete={() => setShowInitialSplash(false)} />
+      )}
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:right-3 focus:z-[100] focus:px-4 focus:py-2.5 focus:rounded-xl focus:bg-blue-700 focus:text-white focus:font-bold focus:shadow-lg"
@@ -410,29 +391,35 @@ function DirectoryMain() {
         activeTab={activeTabKey}
       />
 
-      {/* Main Pages Container */}
-      <main id="main-content" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 md:pb-12 min-h-[75vh]">
-        <Suspense
-          fallback={
-            currentRoute.page === 'listing' ? (
-              <ListingDetailSkeleton />
-            ) : (
-              <div className="space-y-4 py-4">
-                <div className="h-8 w-56 rounded-xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
-                <ListingGridSkeleton count={6} />
-              </div>
-            )
-          }
-        >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={`${currentRoute.page}-${'categoryId' in currentRoute ? currentRoute.categoryId : ''}-${'listingId' in currentRoute ? currentRoute.listingId : ''}`}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+      {/* Main Pages Container with Innovative Pull-To-Refresh */}
+      <PullToRefresh
+        onRefresh={async () => {
+          await refreshData();
+          addToast('تم تحديث دليل وبيانات شها بنجاح!', 'info');
+        }}
+      >
+        <main id="main-content" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 md:pb-12 min-h-[75vh]">
+          <Suspense
+            fallback={
+              currentRoute.page === 'listing' ? (
+                <ListingDetailSkeleton />
+              ) : (
+                <div className="space-y-4 py-4">
+                  <div className="h-8 w-56 rounded-xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
+                  <ListingGridSkeleton count={6} />
+                </div>
+              )
+            }
           >
-        {/* Page 1: HOME */}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={`${currentRoute.page}-${'categoryId' in currentRoute ? currentRoute.categoryId : ''}-${'listingId' in currentRoute ? currentRoute.listingId : ''}`}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            >
+          {/* Page 1: HOME */}
         {currentRoute.page === 'home' && (
           <ErrorBoundary moduleName="الصفحة الرئيسية">
             <HomePage
@@ -549,6 +536,7 @@ function DirectoryMain() {
         </AnimatePresence>
         </Suspense>
       </main>
+      </PullToRefresh>
 
       {/* Global Modals (mounted only when needed, loaded on demand) */}
       <Suspense fallback={null}>
