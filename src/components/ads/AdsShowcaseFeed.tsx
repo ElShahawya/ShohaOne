@@ -108,9 +108,9 @@ export const AdsShowcaseFeed: React.FC<AdsShowcaseFeedProps> = ({
             <div className="p-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 shrink-0">
               <Sparkles className="w-5 h-5" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex flex-wrap items-center gap-2">
               <span>{title}</span>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500 text-white shadow-xs">
+              <span className="shrink-0 whitespace-nowrap text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 shadow-xs">
                 {displayAds.length} {displayAds.length === 1 ? 'إعلان' : 'عروض'}
               </span>
             </h2>
@@ -310,37 +310,41 @@ export const AdsShowcaseFeed: React.FC<AdsShowcaseFeedProps> = ({
               <div
                 className={`pt-3 border-t md:border-t-0 md:pt-0 border-slate-100 dark:border-slate-800 shrink-0 ${
                   viewMode === 'stack'
-                    ? 'flex flex-row md:flex-col gap-2 w-full md:w-44'
-                    : 'space-y-2 pt-3 border-t'
+                    ? 'flex flex-col gap-2 w-full md:w-48'
+                    : 'flex flex-col gap-2 pt-3 border-t'
                 }`}
               >
-                {ad.phone && (
-                  <button
-                    onClick={() => handleCall(ad)}
-                    className="flex-1 min-h-[44px] px-3 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
-                  >
-                    <PhoneCall className="w-3.5 h-3.5 shrink-0" />
-                    <span dir="ltr" className="tabular-nums truncate">{ad.phone}</span>
-                  </button>
-                )}
+                {(ad.phone || ad.whatsapp) && (
+                  <div className="flex items-center gap-2 w-full">
+                    {ad.phone && (
+                      <button
+                        onClick={() => handleCall(ad)}
+                        className="flex-1 h-9 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5 shrink-0" />
+                        <span dir="ltr" className="tabular-nums truncate">{ad.phone}</span>
+                      </button>
+                    )}
 
-                {(ad.whatsapp || ad.phone) && (
-                  <button
-                    onClick={() => handleWhatsApp(ad)}
-                    className="flex-1 min-h-[44px] px-3 py-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>واتساب</span>
-                  </button>
+                    {(ad.whatsapp || ad.phone) && (
+                      <button
+                        onClick={() => handleWhatsApp(ad)}
+                        className="h-9 px-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>واتساب</span>
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {ad.linkUrl && (
                   <button
                     onClick={() => handleCta(ad)}
-                    className="w-full min-h-[44px] px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 font-bold text-xs flex items-center justify-center gap-1 border border-slate-200 dark:border-slate-700 active:scale-95 transition-all cursor-pointer"
+                    className="w-full h-9 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-700 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
                   >
                     <span>{ad.ctaText || 'تفاصيل العرض'}</span>
-                    <ArrowUpRight className="w-3.5 h-3.5" />
+                    <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
                   </button>
                 )}
 
@@ -348,7 +352,7 @@ export const AdsShowcaseFeed: React.FC<AdsShowcaseFeedProps> = ({
                 {canManageAds && (
                   <button
                     onClick={() => toggleAdvertisementPin(ad.id, !ad.isPinned)}
-                    className={`w-full py-1 px-2 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`w-full h-8 px-2.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap ${
                       ad.isPinned
                         ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
                         : 'bg-slate-50 text-slate-500 border-slate-300 hover:bg-slate-100'

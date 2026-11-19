@@ -9,7 +9,6 @@ import { Listing } from '../types';
 import {
   Sparkles,
   ArrowLeft,
-  Building2,
   PlusCircle,
   PhoneCall,
   Droplet,
@@ -21,12 +20,9 @@ import { FeedAdCard } from '../components/ads/FeedAdCard';
 import { TopQuickActions } from '../components/home/TopQuickActions';
 import { RecentlyViewedBar, recordRecentlyViewed } from '../components/common/RecentlyViewedBar';
 import { FavoritesBar } from '../components/common/FavoritesBar';
-import { useGsapReveal } from '../hooks/useGsapReveal';
+import { MansouraEmergencySchedule } from '../components/emergency/MansouraEmergencySchedule';
 import { scheduleIdleTask } from '../lib/net';
 
-const MansouraEmergencySchedule = lazy(() =>
-  import('../components/emergency/MansouraEmergencySchedule').then(m => ({ default: m.MansouraEmergencySchedule }))
-);
 const HeroAdSlider = lazy(() =>
   import('../components/ads/HeroAdSlider').then(m => ({ default: m.HeroAdSlider }))
 );
@@ -58,10 +54,9 @@ export const HomePage: React.FC<HomePageProps> = ({
   onCopyPhone,
   onShowToast
 }) => {
-  const { categories, listings, bloodDonors, advertisements, isAdActiveNow } = useDirectory();
+  const { categories, listings, advertisements, isAdActiveNow } = useDirectory();
   const [searchQuery, setSearchQuery] = useState('');
   const [secondaryReady, setSecondaryReady] = useState(false);
-  const categoriesGridRef = useGsapReveal<HTMLDivElement>({ stagger: 0.03, y: 14, duration: 0.45, deps: [categories.length] });
 
   useEffect(() => {
     return scheduleIdleTask(() => {
@@ -135,6 +130,12 @@ export const HomePage: React.FC<HomePageProps> = ({
         onOpenAddService={onOpenAddService}
       />
 
+      {/* 2.5 Live Hospital & Weekly Emergency Schedule (Top Priority) */}
+      <MansouraEmergencySchedule
+        compactTeaser={true}
+        onOpenFullView={() => navigateTo({ page: 'emergency' })}
+      />
+
       {/* Live Homepage Search Results Overlay/Section when user types */}
       {searchQuery.trim() && (
         <section className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-emerald-200 dark:border-emerald-900/60 shadow-xl space-y-4 animate-fade-in">
@@ -185,21 +186,8 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* Recently Viewed Services Bar */}
       <RecentlyViewedBar onSelectListing={handleSelectWithHistory} />
 
-      <Suspense fallback={null}>
-        {secondaryReady && (
-          <>
-            <MansouraEmergencySchedule
-              compactTeaser={true}
-              onOpenFullView={() => navigateTo({ page: 'emergency' })}
-            />
-            <HeroAdSlider />
-            <DealsStoryBar />
-          </>
-        )}
-      </Suspense>
-
-      {/* 4. Village Directory Categories Grid & Quick Filter */}
-      <section className="space-y-4">
+      {/* 3. Village Directory Categories Grid */}
+      <section className="space-y-4 animate-reveal-up" style={{ animationDelay: '50ms' }}>
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200/60 dark:border-emerald-900/50 shadow-2xs">
@@ -227,24 +215,25 @@ export const HomePage: React.FC<HomePageProps> = ({
           </button>
         </div>
 
-        <div ref={categoriesGridRef} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-          {categories.map((category) => {
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          {categories.map((category, idx) => {
             const count = getCount(category.id);
             return (
               <button
                 key={category.id}
-                data-reveal
                 onClick={() => navigateTo({ page: 'category', categoryId: category.id })}
-                className="card-luxe h-full flex flex-col items-center justify-between p-4 sm:p-5 text-center relative group hover:border-emerald-500 dark:hover:border-emerald-500 hover:-translate-y-1 active:scale-[0.97] cursor-pointer touch-manipulation select-none"
+                style={{ animationDelay: `${Math.min(idx * 20, 180)}ms` }}
+                className="card-luxe animate-reveal-up h-full flex flex-col items-center justify-between p-4 sm:p-5 text-center relative overflow-hidden group hover:border-emerald-500/80 dark:hover:border-emerald-500/70 hover:-translate-y-1 active:scale-[0.97] cursor-pointer touch-manipulation select-none transition-all duration-200 ease-out"
               >
-                <div className="mb-3 transition-transform duration-300 group-hover:scale-110">
+                <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-500/70 to-teal-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                <div className="mb-3 transition-transform duration-200 ease-out group-hover:scale-110 group-hover:-rotate-3">
                   <CategoryIconBadge category={category} size="lg" />
                 </div>
                 <div className="w-full">
                   <h3 className="card-title text-xs sm:text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                     {category.nameAr}
                   </h3>
-                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1 block tabular-nums">
+                  <span className="inline-block text-[11px] font-bold text-emerald-700/80 dark:text-emerald-400/80 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full mt-1.5 tabular-nums border border-emerald-200/40 dark:border-emerald-800/40">
                     {count > 0 ? `${count} جهة مسجلة` : 'متاح للتسجيل'}
                   </span>
                 </div>
@@ -254,21 +243,22 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       </section>
 
+      {/* 4. Featured & Verified Listings */}
       {featuredListings.length > 0 && (
         <section>
-          <div className="flex items-center justify-between gap-3 mb-6 pb-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-between gap-3 mb-5 pb-3 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
               <h2 className="font-display text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 أبرز الأرقام والخدمات الموثقة بشها
               </h2>
             </div>
-            <span className="text-xs font-bold text-slate-500">
+            <span className="text-xs font-bold text-slate-500 hidden sm:inline">
               أعلى تقييماً وطلباً من أهالي القرية
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {feedAds.length > 0 && <FeedAdCard ad={feedAds[0]} />}
             {featuredListings.map(listing => (
               <ListingCard
@@ -282,71 +272,31 @@ export const HomePage: React.FC<HomePageProps> = ({
         </section>
       )}
 
-      {/* 6. Top Quick Action Cards (Add Service & Report Issue) */}
-      <TopQuickActions
-        onOpenAddService={onOpenAddService}
-        onOpenReport={() => onOpenReport ? onOpenReport() : undefined}
-      />
-
+      {/* 5. Secondary Live Feeds (Idle-loaded for speed) */}
       <Suspense fallback={null}>
         {secondaryReady && (
-          <>
+          <div className="space-y-6 sm:space-y-8">
+            <HeroAdSlider />
+            <DealsStoryBar />
             <section>
               <VillageNewsSection
                 limit={3}
                 onNavigateToFullNews={() => navigateTo({ page: 'news' })}
               />
             </section>
-
             <AdsShowcaseFeed limit={3} initialMode="stack" />
-          </>
+            <section>
+              <ShahaFacebookPages onShowToast={onShowToast} />
+            </section>
+          </div>
         )}
       </Suspense>
 
-      {/* 9. Village Stats Banner */}
-      <section className="page-hero p-6 sm:p-10">
-        <div className="relative z-10">
-          <div className="max-w-2xl mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-emerald-200 text-xs font-bold mb-3 border border-white/15">
-              <Building2 className="w-3.5 h-3.5" />
-              <span>قرية شها – مركز المنصورة – محافظة الدقهلية</span>
-            </div>
-            <h2 className="font-display text-2xl sm:text-3xl font-black mb-2">
-              منصة رقمية موحدة لخدمة كل بيت في شها
-            </h2>
-            <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-              نهدف إلى تيسير المعاملات اليومية وربط الأهالي بالأطباء والصيادلة والحرفيين والمؤسسات الخدمية والخيرية بضغطة زر واحدة.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15">
-              <div className="font-display tabular-nums text-2xl sm:text-3xl font-black text-white">{listings.length}+</div>
-              <div className="text-xs font-bold text-emerald-200 mt-1">خدمة ورقم مسجل</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15">
-              <div className="font-display tabular-nums text-2xl sm:text-3xl font-black text-rose-300">{bloodDonors.length}</div>
-              <div className="text-xs font-bold text-emerald-200 mt-1">متبرع ببنك الدم بشها</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15">
-              <div className="font-display tabular-nums text-2xl sm:text-3xl font-black text-amber-300">{categories.length}</div>
-              <div className="text-xs font-bold text-emerald-200 mt-1">قسماً وتخصصاً شاملاً</div>
-            </div>
-            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15">
-              <div className="font-display tabular-nums text-2xl sm:text-3xl font-black text-emerald-300">24/7</div>
-              <div className="text-xs font-bold text-emerald-200 mt-1">متاح دائماً مجاناً</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <Suspense fallback={null}>
-        {secondaryReady && (
-          <section>
-            <ShahaFacebookPages onShowToast={onShowToast} />
-          </section>
-        )}
-      </Suspense>
+      {/* 6. Community Actions & Quick Contribution */}
+      <TopQuickActions
+        onOpenAddService={onOpenAddService}
+        onOpenReport={() => onOpenReport ? onOpenReport() : undefined}
+      />
 
       {/* 11. Quick Action Cards: Blood Bank & Emergency & Add Service */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">

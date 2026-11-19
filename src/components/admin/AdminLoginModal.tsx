@@ -18,7 +18,11 @@ import {
   Sparkles,
   Zap,
   CheckCircle2,
-  Loader2
+  Loader2,
+  UserPlus,
+  LogIn,
+  Mail,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDirectory } from '../../context/DirectoryContext';
@@ -30,6 +34,8 @@ interface AdminLoginModalProps {
   onLoginSuccess: (mustChangePassword?: boolean) => void;
   variant?: 'modal' | 'page';
 }
+
+type AuthTab = 'signin' | 'signup';
 
 const GoogleMark: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
@@ -59,8 +65,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   variant = 'modal'
 }) => {
   const {
-    adminLogin,
     signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
     currentUser,
     isOnline,
     isInstallable,
@@ -72,9 +79,15 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const { isStandalone, isInstalled, prefersReducedMotion } = useAppInstallState();
   const isAppMode = isStandalone;
 
-  const [password, setPassword] = useState('');
+  const [activeTab, setActiveTab] = useState<AuthTab>('signin');
+
+  // Form states
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+  const [userName, setUserName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
-  const [capsLockOn, setCapsLockOn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -98,29 +111,68 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     setErrorPulseKey((prev) => prev + 1);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUserSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!password) {
-      triggerError('يرجى كتابة كلمة المرور الإدارية');
+    if (!userEmail.trim()) {
+      triggerError('يرجى إدخال البريد الإلكتروني');
+      return;
+    }
+    if (!userPassword) {
+      triggerError('يرجى إدخال كلمة المرور');
       return;
     }
 
     setIsLoading(true);
-    const result = await adminLogin(password);
+    const result = await signInWithEmail(userEmail, userPassword);
     setIsLoading(false);
 
     if (result.success) {
-      onLoginSuccess(result.mustChangePassword);
+      onLoginSuccess(false);
       onClose();
-      setPassword('');
+      setUserPassword('');
     } else {
-      triggerError(result.error || 'كلمة المرور غير صحيحة');
+      triggerError(result.error || 'فشل تسجيل الدخول. تحقق من بياناتك.');
     }
   };
 
-  const handleGoogleAdmin = async () => {
+  const handleUserSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (!userName.trim() || userName.trim().length < 2) {
+      triggerError('يرجى إدخال اسمك الكريم (حرفين على الأقل)');
+      return;
+    }
+    if (!userEmail.trim() || !userEmail.includes('@')) {
+      triggerError('يرجى إدخال بريد إلكتروني صالح');
+      return;
+    }
+    if (!userPassword || userPassword.length < 6) {
+      triggerError('كلمة المرور يجب ألا تقل عن 6 أحرف أو أرقام');
+      return;
+    }
+    if (userPassword !== confirmPassword) {
+      triggerError('كلمتا المرور غير متطابقتين');
+      return;
+    }
+
+    setIsLoading(true);
+    const result = await signUpWithEmail(userEmail, userPassword, userName);
+    setIsLoading(false);
+
+    if (result.success) {
+      onLoginSuccess(false);
+      onClose();
+      setUserPassword('');
+      setConfirmPassword('');
+    } else {
+      triggerError(result.error || 'فشل إنشاء الحساب. حاول مجدداً.');
+    }
+  };
+
+  const handleGoogleAuth = async () => {
     setErrorMessage('');
     setIsGoogleLoading(true);
     try {
@@ -133,14 +185,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       if (!result.user) {
         setIsGoogleLoading(false);
         triggerError('لم يكتمل تسجيل الدخول. حاول مرة أخرى.');
-        return;
-      }
-
-      if (!result.isAdmin) {
-        setIsGoogleLoading(false);
-        triggerError(
-          'تم تسجيل الدخول بحساب Google، لكن هذا الحساب لا يملك صلاحية إدارية. استخدم حساب المشرف المعتمد أو كلمة المرور.'
-        );
         return;
       }
 
@@ -161,12 +205,12 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       opacity: 1,
       transition: prefersReducedMotion
         ? { duration: 0.01 }
-        : { staggerChildren: 0.06, delayChildren: 0.05 }
+        : { staggerChildren: 0.05, delayChildren: 0.04 }
     }
   };
 
   const itemVariants = {
-    hidden: prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 14 },
+    hidden: prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 12 },
     visible: {
       opacity: 1,
       y: 0,
@@ -181,27 +225,27 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const showcaseFeatures = [
     {
       icon: ShieldCheck,
-      title: 'حماية RBAC من الخادم',
-      desc: 'تحقق فوري من الصلاحيات والأدوار عبر الخادم دون كشف أي بيانات حساسة.'
+      title: 'حماية وحسابات موثقة',
+      desc: 'تسجيل دخول آمن للمواطنين والمشرفين مع حفظ بياناتك ومفضلتك.'
     },
     {
       icon: Zap,
       title: 'مزامنة لحظية فائقة',
-      desc: 'إدارة كاملة للخدمات والتوثيق والبلاغات مع حفظ تلقائي ومرونة عالية.'
+      desc: 'إمكانية إضافة أرقامك وخدماتك والتفاعل مع إعلانات وأخبار القرية.'
     },
     {
       icon: Smartphone,
-      title: isAppMode ? 'وضع التطبيق الأصلي نشط' : 'تجربة App-Like متكاملة',
+      title: isAppMode ? 'وضع التطبيق الأصلي نشط' : 'تجربة Native سريعة',
       desc: isAppMode
-        ? 'تم التعرف على التطبيق المثبت وتفعيل واجهة الدخول السريع المتوافقة.'
-        : 'تصميم متجاوب بالكامل للهاتف والتابلت والكمبيوتر مع دعم التثبيت.'
+        ? 'تم التعرف على التطبيق وتفعيل الدخول السريع المتوافق.'
+        : 'متجاوب بالكامل مع الهواتف والشاشات اللوحية والكمبيوتر.'
     }
   ];
 
   const outerWrapperClass =
     variant === 'page'
       ? 'relative min-h-[100dvh] w-full overflow-x-hidden flex flex-col justify-between bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100'
-      : 'fixed inset-0 z-50 overflow-y-auto overflow-x-hidden flex flex-col justify-between bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-xl text-slate-900 dark:text-slate-100';
+      : 'fixed inset-0 z-50 overflow-y-auto overflow-x-hidden flex flex-col justify-between bg-slate-50/98 dark:bg-slate-950/98 text-slate-900 dark:text-slate-100';
 
   return (
     <AnimatePresence>
@@ -210,54 +254,32 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         initial={prefersReducedMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={prefersReducedMotion ? undefined : { opacity: 0 }}
-        transition={{ duration: 0.25 }}
+        transition={{ duration: 0.18 }}
         className={outerWrapperClass}
       >
-        {/* Ambient Animated Background */}
         <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
           <div
-            className="absolute inset-0 opacity-[0.035] dark:opacity-[0.06]"
+            className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
             style={{
-              backgroundImage:
-                'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)',
+              backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)',
               backgroundSize: '28px 28px'
             }}
           />
-
-          <motion.div
-            animate={
-              prefersReducedMotion
-                ? undefined
-                : {
-                    x: [0, 35, -20, 0],
-                    y: [0, -25, 20, 0],
-                    scale: [1, 1.08, 0.96, 1]
-                  }
-            }
-            transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute -top-28 -right-24 w-80 h-80 sm:w-[28rem] sm:h-[28rem] rounded-full bg-blue-500/18 dark:bg-blue-500/20 blur-3xl"
-          />
-          <motion.div
-            animate={
-              prefersReducedMotion
-                ? undefined
-                : {
-                    x: [0, -30, 25, 0],
-                    y: [0, 30, -20, 0],
-                    scale: [1, 0.94, 1.06, 1]
-                  }
-            }
-            transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
-            className="absolute -bottom-32 -left-24 w-80 h-80 sm:w-[30rem] sm:h-[30rem] rounded-full bg-amber-500/14 dark:bg-amber-500/12 blur-3xl"
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(circle at 85% 15%, rgba(16, 185, 129, 0.12) 0%, transparent 45%), radial-gradient(circle at 15% 85%, rgba(20, 184, 166, 0.1) 0%, transparent 45%)'
+            }}
           />
         </div>
 
-        {/* Top App / Navigation Bar */}
+        {/* Top Header */}
         <header
-          className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 flex items-center justify-between gap-3"
-          style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+          className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-3 sm:pt-6 flex items-center justify-between gap-3"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
@@ -266,7 +288,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             >
               {variant === 'page' ? (
                 <>
-                  <ArrowRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <ArrowRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>العودة للرئيسية</span>
                 </>
               ) : (
@@ -290,15 +312,14 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Auto-Detected App Mode Pill */}
             {isAppMode ? (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600/10 dark:bg-blue-500/15 border border-blue-600/25 dark:border-blue-400/25 text-[11px] font-extrabold text-blue-700 dark:text-blue-300 backdrop-blur-md">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600/10 dark:bg-emerald-500/15 border border-emerald-600/25 dark:border-emerald-400/25 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300 backdrop-blur-md">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 dark:bg-blue-400" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600 dark:bg-emerald-400" />
                 </span>
                 <Smartphone className="w-3.5 h-3.5" />
-                <span>وضع التطبيق المثبت</span>
+                <span>وضع التطبيق</span>
               </div>
             ) : isInstallable && !isInstalled ? (
               <button
@@ -313,17 +334,18 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
             <button
               type="button"
-              onClick={toggleTheme}
+              onClick={(e) => toggleTheme(e)}
               aria-label={theme === 'dark' ? 'التبديل للوضع الفاتح' : 'التبديل للوضع الداكن'}
-              className="p-2.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 shadow-xs backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+              className="relative w-10 h-10 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 shadow-xs transition-all active:scale-90 cursor-pointer overflow-hidden"
             >
-              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-blue-700" />}
+              <Sun className={`w-4 h-4 text-amber-400 absolute transition-all duration-300 ${theme === 'dark' ? 'scale-100 rotate-0 opacity-100' : 'scale-0 -rotate-90 opacity-0'}`} />
+              <Moon className={`w-4 h-4 text-emerald-700 absolute transition-all duration-300 ${theme === 'light' ? 'scale-100 rotate-0 opacity-100' : 'scale-0 rotate-90 opacity-0'}`} />
             </button>
           </div>
         </header>
 
         {/* Main Content Grid */}
-        <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 flex items-center justify-center">
+        <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8 flex items-center justify-center">
           <div
             className={`w-full grid gap-6 lg:gap-10 items-center ${
               isAppMode
@@ -331,59 +353,44 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 : 'grid-cols-1 lg:grid-cols-12 max-w-md sm:max-w-lg lg:max-w-none'
             }`}
           >
-            {/* Desktop Brand Showcase Panel (hidden in compact App-Like standalone mode on desktop too, or shown on web desktop) */}
+            {/* Desktop Brand Showcase Panel */}
             {!isAppMode && (
               <motion.section
-                initial={prefersReducedMotion ? false : { opacity: 0, x: 24 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="hidden lg:flex lg:col-span-6 flex-col justify-between p-8 xl:p-10 rounded-[2rem] bg-gradient-to-br from-blue-950 via-blue-900 to-slate-950 text-white shadow-2xl border border-blue-800/40 relative overflow-hidden min-h-[540px]"
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                className="hidden lg:flex lg:col-span-6 flex-col justify-between p-8 xl:p-10 rounded-[2rem] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 text-white shadow-2xl border border-emerald-800/30 relative overflow-hidden min-h-[560px]"
               >
                 <div
                   className="absolute inset-0 opacity-15 pointer-events-none"
                   style={{
-                    backgroundImage:
-                      'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.35) 1px, transparent 0)',
+                    backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.3) 1px, transparent 0)',
                     backgroundSize: '24px 24px'
                   }}
                 />
-                <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-blue-400/20 blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-amber-400/15 blur-3xl pointer-events-none" />
+                <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-teal-500/20 blur-3xl pointer-events-none" />
 
                 <div className="relative z-10 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-xs font-bold text-blue-100">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>بوابة الإدارة المعتمدة • SHAHA ONE</span>
-                    </div>
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-xs font-bold text-emerald-200">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>بوابة الهوية والخدمات • SHAHA ONE</span>
                   </div>
 
-                  {/* Animated Orbital Emblem */}
                   <div className="flex items-center gap-4 pt-2">
                     <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
                       <motion.div
                         animate={prefersReducedMotion ? undefined : { rotate: 360 }}
                         transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
-                        className="absolute inset-0 rounded-3xl border border-dashed border-blue-300/40"
+                        className="absolute inset-0 rounded-3xl border border-dashed border-emerald-400/40"
                       />
-                      <motion.div
-                        animate={prefersReducedMotion ? undefined : { rotate: -360 }}
-                        transition={{ duration: 26, repeat: Infinity, ease: 'linear' }}
-                        className="absolute inset-1.5 rounded-2xl border border-amber-300/30"
-                      />
-                      <div className="relative w-14 h-14 rounded-2xl bg-white/12 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-xl overflow-hidden">
-                        <img
-                          src="./brand-icon.svg"
-                          alt="شها ون"
-                          className="w-10 h-10 object-contain"
-                        />
+                      <div className="relative w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-xl overflow-hidden">
+                        <img src="./brand-icon.svg" alt="شها ون" className="w-10 h-10 object-contain" />
                       </div>
                     </div>
                     <div>
-                      <h1 className="text-3xl font-black tracking-tight text-white">
-                        منصة شها ون
-                      </h1>
-                      <p className="text-sm text-blue-100/80 mt-1 font-medium">
+                      <h1 className="text-3xl font-black tracking-tight text-white">منصة شها ون</h1>
+                      <p className="text-sm text-emerald-100/80 mt-1 font-medium">
                         المنصة الرقمية المتكاملة لخدمات أهالي قرية شها
                       </p>
                     </div>
@@ -396,19 +403,17 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                       return (
                         <motion.div
                           key={feat.title}
-                          initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                          initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.15 + idx * 0.08, duration: 0.4 }}
-                          className="flex items-start gap-3.5 p-4 rounded-2xl bg-white/8 hover:bg-white/12 border border-white/12 backdrop-blur-md transition-colors"
+                          transition={{ delay: 0.12 + idx * 0.07, duration: 0.35 }}
+                          className="flex items-start gap-3.5 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md transition-colors"
                         >
-                          <div className="w-10 h-10 rounded-xl bg-blue-500/25 border border-blue-300/30 text-blue-200 flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 flex items-center justify-center shrink-0">
                             <Icon className="w-5 h-5" />
                           </div>
                           <div>
                             <h3 className="text-sm font-extrabold text-white">{feat.title}</h3>
-                            <p className="text-xs text-blue-100/75 mt-0.5 leading-relaxed">
-                              {feat.desc}
-                            </p>
+                            <p className="text-xs text-slate-300/80 mt-0.5 leading-relaxed">{feat.desc}</p>
                           </div>
                         </motion.div>
                       );
@@ -416,17 +421,17 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   </div>
                 </div>
 
-                <div className="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-[11px] text-blue-200/75">
+                <div className="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-[11px] text-emerald-200/75">
                   <span className="flex items-center gap-1.5 font-semibold">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>نظام صلاحيات متعدد الطبقات</span>
+                    <span>منظومة متكاملة لحسابات الأهالي والإدارة</span>
                   </span>
-                  <span className="font-mono opacity-60 tracking-wider">DevMeDoAnDrOiD</span>
+                  <span className="font-mono opacity-60 tracking-wider">SHAHA ONE</span>
                 </div>
               </motion.section>
             )}
 
-            {/* Login Form Card (Adapts to App-Like Standalone & Responsive Breakpoints) */}
+            {/* Login & Registration Form Card */}
             <motion.section
               variants={containerVariants}
               initial="hidden"
@@ -434,59 +439,66 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               className={`w-full ${isAppMode ? '' : 'lg:col-span-6 lg:max-w-lg lg:mx-auto'}`}
             >
               <div
-                className={`relative overflow-hidden border backdrop-blur-2xl shadow-2xl transition-all ${
+                className={`relative overflow-hidden border shadow-2xl transition-all ${
                   isAppMode
-                    ? 'rounded-3xl sm:rounded-[2rem] bg-white/92 dark:bg-slate-900/92 border-slate-200/90 dark:border-slate-800/90 p-5 sm:p-8'
-                    : 'rounded-3xl sm:rounded-[2rem] bg-white/88 dark:bg-slate-900/88 border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-8 xl:p-9'
+                    ? 'rounded-3xl sm:rounded-[2rem] bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800/90 p-4 sm:p-7'
+                    : 'rounded-3xl sm:rounded-[2rem] bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-7 xl:p-8'
                 }`}
               >
-                {/* Top Subtle Accent Line */}
-                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-600 via-emerald-500 to-amber-500" />
+                {/* Top Radiant Accent Line */}
+                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-600 via-teal-500 to-amber-500" />
 
-                {/* Mobile / App-Mode Brand Crest */}
-                <motion.div
-                  variants={itemVariants}
-                  className={`flex flex-col items-center text-center ${
-                    isAppMode ? 'mb-6' : 'lg:items-start lg:text-right mb-6'
-                  }`}
-                >
-                  <div
-                    className={`relative mb-4 ${
-                      isAppMode ? 'w-20 h-20' : 'w-16 h-16 lg:hidden'
-                    } flex items-center justify-center`}
-                  >
-                    <motion.div
-                      animate={prefersReducedMotion ? undefined : { rotate: 360 }}
-                      transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}
-                      className="absolute inset-0 rounded-3xl border-2 border-dashed border-blue-500/35 dark:border-blue-400/35"
-                    />
-                    <motion.div
-                      initial={prefersReducedMotion ? false : { scale: 0.75, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: 'spring', stiffness: 280, damping: 20 }}
-                      className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-white shadow-lg shadow-blue-700/25 flex items-center justify-center overflow-hidden"
-                    >
-                      <img
-                        src="./brand-icon.svg"
-                        alt="شها ون"
-                        className="w-9 h-9 object-contain"
-                      />
-                    </motion.div>
+                {/* Mobile Emblem */}
+                <motion.div variants={itemVariants} className="flex flex-col items-center text-center mb-5">
+                  <div className="relative mb-3 w-14 h-14 lg:hidden flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-700/25 flex items-center justify-center overflow-hidden">
+                      <img src="./brand-icon.svg" alt="شها ون" className="w-8 h-8 object-contain" />
+                    </div>
                   </div>
 
-                  <div className="hidden lg:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200/70 dark:border-blue-800/60 text-blue-700 dark:text-blue-300 text-[11px] font-extrabold mb-3">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>{isAppMode ? 'دخول التطبيق الآمن' : 'تحقق أمني مشفر'}</span>
-                  </div>
-
-                  <h2 className="text-2xl sm:text-[1.65rem] font-black text-slate-900 dark:text-white tracking-tight">
-                    تسجيل دخول الإدارة
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {activeTab === 'signin' ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
                   </h2>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                    {isAppMode
-                      ? 'أهلاً بك في تطبيق شها ون — سجّل دخولك للوصول إلى لوحة التحكم'
-                      : 'لوحة الإدارة والتحكم الشاملة في خدمات ومحتوى منصة شها ون'}
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {activeTab === 'signin'
+                      ? 'أهلاً بك مجدداً في منصة شها ون'
+                      : 'انضم الآن لمجتمع أهالي شها واستفد من كافة الخدمات'}
                   </p>
+                </motion.div>
+
+                {/* Segmented Control / Tabs */}
+                <motion.div variants={itemVariants} className="grid grid-cols-2 gap-1.5 p-1 mb-5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('signin');
+                      setErrorMessage('');
+                    }}
+                    className={`py-2.5 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      activeTab === 'signin'
+                        ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs font-black'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>تسجيل الدخول</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('signup');
+                      setErrorMessage('');
+                    }}
+                    className={`py-2.5 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      activeTab === 'signup'
+                        ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs font-black'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>حساب جديد</span>
+                  </button>
                 </motion.div>
 
                 {/* Animated Error Alert */}
@@ -494,15 +506,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   {errorMessage && (
                     <motion.div
                       key={errorPulseKey}
-                      initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: -6, x: 0 }}
-                      animate={
-                        prefersReducedMotion
-                          ? { opacity: 1 }
-                          : { opacity: 1, y: 0, x: [0, -7, 7, -4, 4, 0] }
-                      }
+                      initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.35 }}
-                      className="p-3.5 mb-5 rounded-2xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/80 text-red-700 dark:text-red-300 text-xs font-bold flex items-start gap-2.5 shadow-xs"
+                      transition={{ duration: 0.25 }}
+                      className="p-3 mb-4 rounded-2xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/80 text-red-700 dark:text-red-300 text-xs font-bold flex items-start gap-2 shadow-xs"
                     >
                       <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                       <span className="leading-relaxed">{errorMessage}</span>
@@ -510,162 +518,237 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   )}
                 </AnimatePresence>
 
-                {/* Password Form */}
-                <motion.form variants={itemVariants} onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label
-                        htmlFor="shaha-admin-password"
-                        className="block text-xs font-extrabold text-slate-700 dark:text-slate-300"
-                      >
-                        كلمة مرور المشرف
-                      </label>
-                      {capsLockOn && (
-                        <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
-                          تنبيه: Caps Lock مفعل
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="relative group">
-                      <input
-                        id="shaha-admin-password"
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        autoFocus
-                        autoComplete="current-password"
-                        value={password}
-                        onKeyUp={(e) => setCapsLockOn(e.getModifierState('CapsLock'))}
-                        onChange={(e) => {
-                          setPassword(e.target.value);
-                          if (errorMessage) setErrorMessage('');
-                        }}
-                        placeholder="أدخل كلمة المرور الإدارية..."
-                        className="w-full min-h-[50px] px-4 py-3 pl-20 rounded-2xl text-sm bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-blue-600 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-600/12 transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute left-10 top-1/2 -translate-y-1/2 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
-                        title={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                        aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
-                      <KeyRound className="w-4 h-4 text-slate-400 group-focus-within:text-blue-600 dark:group-focus-within:text-blue-400 transition-colors absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <motion.button
-                    type="submit"
-                    disabled={busy}
-                    whileHover={prefersReducedMotion || busy ? undefined : { scale: 1.01 }}
-                    whileTap={prefersReducedMotion || busy ? undefined : { scale: 0.985 }}
-                    className="relative overflow-hidden group w-full min-h-[50px] py-3.5 px-5 rounded-2xl bg-gradient-to-r from-blue-700 via-blue-600 to-teal-700 hover:from-blue-800 hover:to-teal-800 text-white font-extrabold text-sm shadow-lg shadow-blue-700/25 transition-all disabled:opacity-60 flex items-center justify-center gap-2.5 cursor-pointer"
-                  >
-                    <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>جاري التحقق الآمن...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4" />
-                        <span>دخول لوحة التحكم</span>
-                      </>
-                    )}
-                  </motion.button>
-                </motion.form>
-
-                {/* Divider */}
-                <motion.div variants={itemVariants} className="relative my-5">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-200/80 dark:border-slate-800" />
-                  </div>
-                  <div className="relative flex justify-center text-[11px]">
-                    <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 font-bold rounded-full">
-                      أو الدخول السريع بحساب المشرف
-                    </span>
-                  </div>
-                </motion.div>
-
-                {/* Google Admin Login */}
-                <motion.div variants={itemVariants}>
+                {/* Quick 1-Tap Google Sign-In */}
+                <motion.div variants={itemVariants} className="space-y-3 mb-4">
                   <motion.button
                     type="button"
-                    onClick={handleGoogleAdmin}
+                    onClick={handleGoogleAuth}
                     disabled={busy}
                     whileHover={prefersReducedMotion || busy ? undefined : { scale: 1.01 }}
                     whileTap={prefersReducedMotion || busy ? undefined : { scale: 0.985 }}
-                    className="w-full min-h-[48px] py-3 px-4 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200/80 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold text-xs sm:text-sm border border-slate-200 dark:border-slate-700/80 transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-60 shadow-xs"
+                    className="w-full min-h-[46px] py-2.5 px-4 rounded-2xl bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200/80 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold text-xs sm:text-sm border border-slate-200 dark:border-slate-700/80 transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-60 shadow-xs"
                   >
                     {isGoogleLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
                     ) : (
                       <GoogleMark className="w-4 h-4 shrink-0" />
                     )}
-                    <span className="truncate">
+                    <span>
                       {isGoogleLoading
                         ? 'جاري المصادقة عبر Google...'
                         : currentUser?.email
-                          ? `الدخول بالحساب الحالي (${currentUser.email})`
-                          : 'الدخول بواسطة Google للمشرف المعتمد'}
+                          ? `المتابعة بحساب (${currentUser.email})`
+                          : 'المتابعة السريعة بواسطة Google'}
                     </span>
                   </motion.button>
+
+                  <div className="relative my-3">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200/80 dark:border-slate-800" />
+                    </div>
+                    <div className="relative flex justify-center text-[11px]">
+                      <span className="bg-white dark:bg-slate-900 px-3 text-slate-400 font-bold rounded-full">
+                        أو بالبريد الإلكتروني
+                      </span>
+                    </div>
+                  </div>
                 </motion.div>
 
-                {/* App Install Callout on Mobile/Tablet Web Browser when not yet installed */}
-                {!isAppMode && isInstallable && !isInstalled && (
-                  <motion.div
-                    variants={itemVariants}
-                    className="mt-5 p-3.5 rounded-2xl bg-gradient-to-r from-blue-50 to-amber-50/70 dark:from-blue-950/50 dark:to-amber-950/30 border border-blue-200/60 dark:border-blue-800/50 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                        <Smartphone className="w-4 h-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
-                          ثبّت تطبيق شها ون
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                          تجربة أسرع بنمط App-Like ودخول فوري
-                        </p>
+                {/* TAB 1: User Sign In Form */}
+                {activeTab === 'signin' && (
+                  <motion.form variants={itemVariants} onSubmit={handleUserSignIn} className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        البريد الإلكتروني
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="email"
+                          required
+                          dir="ltr"
+                          value={userEmail}
+                          onChange={(e) => {
+                            setUserEmail(e.target.value);
+                            if (errorMessage) setErrorMessage('');
+                          }}
+                          placeholder="name@example.com"
+                          className="w-full min-h-[46px] px-3.5 py-2 pl-10 rounded-2xl text-xs sm:text-sm bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-400 focus:ring-4 focus:ring-emerald-600/10 transition-all"
+                        />
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={installApp}
-                      className="px-3 py-1.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        كلمة المرور
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={userPassword}
+                          onChange={(e) => {
+                            setUserPassword(e.target.value);
+                            if (errorMessage) setErrorMessage('');
+                          }}
+                          placeholder="أدخل كلمة المرور..."
+                          className="w-full min-h-[46px] px-3.5 py-2 pl-16 rounded-2xl text-xs sm:text-sm bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-400 focus:ring-4 focus:ring-emerald-600/10 transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((prev) => !prev)}
+                          className="absolute left-9 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                        <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <motion.button
+                      type="submit"
+                      disabled={busy}
+                      whileHover={prefersReducedMotion || busy ? undefined : { scale: 1.01 }}
+                      whileTap={prefersReducedMotion || busy ? undefined : { scale: 0.985 }}
+                      className="w-full min-h-[48px] py-3 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-700/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      تثبيت
-                    </button>
-                  </motion.div>
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>جاري تسجيل الدخول...</span>
+                        </>
+                      ) : (
+                        <>
+                          <LogIn className="w-4 h-4" />
+                          <span>تسجيل الدخول</span>
+                        </>
+                      )}
+                    </motion.button>
+                  </motion.form>
                 )}
 
-                {/* Security Footer */}
-                <motion.div
-                  variants={itemVariants}
-                  className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/80 flex flex-col items-center gap-1.5 text-center"
-                >
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">
-                    يتم التحقق من الصلاحيات الإدارية من جهة الخادم وفق أعلى معايير الأمان وتشفير الجلسات
+                {/* TAB 2: User Sign Up Form */}
+                {activeTab === 'signup' && (
+                  <motion.form variants={itemVariants} onSubmit={handleUserSignUp} className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        الاسم الكريم
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          value={userName}
+                          onChange={(e) => {
+                            setUserName(e.target.value);
+                            if (errorMessage) setErrorMessage('');
+                          }}
+                          placeholder="الاسم ثلاثي أو اللقب"
+                          className="w-full min-h-[44px] px-3.5 py-2 pl-10 rounded-2xl text-xs sm:text-sm bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-400 focus:ring-4 focus:ring-emerald-600/10 transition-all"
+                        />
+                        <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        البريد الإلكتروني
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="email"
+                          required
+                          dir="ltr"
+                          value={userEmail}
+                          onChange={(e) => {
+                            setUserEmail(e.target.value);
+                            if (errorMessage) setErrorMessage('');
+                          }}
+                          placeholder="name@example.com"
+                          className="w-full min-h-[44px] px-3.5 py-2 pl-10 rounded-2xl text-xs sm:text-sm bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-400 focus:ring-4 focus:ring-emerald-600/10 transition-all"
+                        />
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          كلمة المرور
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            required
+                            value={userPassword}
+                            onChange={(e) => {
+                              setUserPassword(e.target.value);
+                              if (errorMessage) setErrorMessage('');
+                            }}
+                            placeholder="6 خانات فأكثر"
+                            className="w-full min-h-[44px] px-3 py-2 pl-9 rounded-2xl text-xs bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                          >
+                            {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          تأكيد كلمة المرور
+                        </label>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => {
+                            setConfirmPassword(e.target.value);
+                            if (errorMessage) setErrorMessage('');
+                          }}
+                          placeholder="أعد إدخالها"
+                          className="w-full min-h-[44px] px-3 py-2 rounded-2xl text-xs bg-slate-50/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-400"
+                        />
+                      </div>
+                    </div>
+
+                    <motion.button
+                      type="submit"
+                      disabled={busy}
+                      whileHover={prefersReducedMotion || busy ? undefined : { scale: 1.01 }}
+                      whileTap={prefersReducedMotion || busy ? undefined : { scale: 0.985 }}
+                      className="w-full min-h-[48px] mt-2 py-3 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-700/20 transition-all disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>جاري إنشاء الحساب...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          <span>إنشاء حسابي مجاناً</span>
+                        </>
+                      )}
+                    </motion.button>
+                  </motion.form>
+                )}
+
+                {/* Footer Security Note */}
+                <motion.div variants={itemVariants} className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-col items-center gap-1 text-center">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                    نظام حماية وتشفير متكامل معتمد لمنصة قرية شها الرقمية
                   </p>
-                  <span className="text-[10px] font-mono text-slate-300 dark:text-slate-700 select-none">
-                    DevMeDoAnDrOiD
-                  </span>
                 </motion.div>
               </div>
             </motion.section>
           </div>
         </main>
 
-        {/* Safe Area Bottom Padding */}
         <div style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} />
       </motion.div>
     </AnimatePresence>

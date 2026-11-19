@@ -326,52 +326,60 @@ export const MansouraEmergencySchedule: React.FC<MansouraEmergencyScheduleProps>
   // Compact Teaser View for Homepage
   if (compactTeaser) {
     return (
-      <div className="bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 text-white rounded-2xl p-4 md:p-5 shadow-lg border border-rose-500/30 dir-rtl my-4 relative overflow-hidden">
-        <div className="absolute top-0 left-0 -ml-10 -mt-10 w-40 h-40 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
-        
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <section className="animate-reveal-up relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-[#1b1220] to-slate-950 text-white p-4 sm:p-5 shadow-xl border border-rose-500/25 dir-rtl">
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle at 12% 18%, rgba(244, 63, 94, 0.16) 0%, transparent 45%), radial-gradient(circle at 88% 85%, rgba(16, 185, 129, 0.12) 0%, transparent 45%)'
+          }}
+        />
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           {/* Today Badge & Info */}
-          <div className="space-y-1.5 flex-1">
+          <div className="space-y-2 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold border border-rose-500/40">
-                <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                استقبال الطوارئ اليوم ({cairoDayName})
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-200 text-xs font-black border border-rose-500/35">
+                <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                <span>استقبال الطوارئ اليوم ({cairoDayName})</span>
               </span>
-              <span className="text-[11px] text-slate-300 bg-slate-800/80 px-2.5 py-0.5 rounded-md border border-slate-700">
-                مصر {cairoDateFormatted.split(' ').slice(0, 3).join(' ')}
+              <span className="text-[11px] font-bold text-slate-300 bg-white/[0.07] px-2.5 py-1 rounded-full border border-white/10">
+                {cairoDateFormatted.split(' ').slice(0, 3).join(' ')}
               </span>
             </div>
 
-            <h3 className="text-base md:text-lg font-black text-amber-300 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-rose-400 shrink-0" />
-              <span>{todayEntry.hospitalName}</span>
+            <h3 className="font-display text-lg sm:text-xl font-black text-amber-300 flex items-center gap-2.5">
+              <span className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5 text-rose-400" />
+              </span>
+              <span className="truncate">{todayEntry.hospitalName}</span>
             </h3>
-            <p className="text-xs text-slate-300 flex items-center gap-2">
-              <span>أرقام الطوارئ اليوم:</span>
+
+            <div className="flex items-center gap-2 flex-wrap pt-0.5">
               <a
                 href={`tel:${todayEntry.phone}`}
-                className="font-mono font-bold text-emerald-400 hover:text-emerald-300 text-sm bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded flex items-center gap-1"
+                className="font-mono font-bold text-emerald-300 hover:text-white text-xs sm:text-sm bg-emerald-950/70 hover:bg-emerald-700 border border-emerald-700/60 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors active:scale-95"
               >
-                <PhoneCall className="w-3 h-3" />
-                <span>{todayEntry.phone}</span>
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span dir="ltr">{todayEntry.phone}</span>
               </a>
               <a
                 href="tel:123"
-                className="font-mono font-bold text-rose-400 hover:text-rose-300 text-sm bg-rose-950/60 border border-rose-800/80 px-2 py-0.5 rounded flex items-center gap-1"
+                className="font-mono font-bold text-rose-300 hover:text-white text-xs sm:text-sm bg-rose-950/70 hover:bg-rose-700 border border-rose-700/60 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors active:scale-95"
               >
-                <Phone className="w-3 h-3" />
+                <Phone className="w-3.5 h-3.5" />
                 <span>الإسعاف: 123</span>
               </a>
-            </p>
+            </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
             <button
+              type="button"
               onClick={onOpenFullView || (() => setIsExpanded(prev => !prev))}
-              className="flex-1 md:flex-none py-2 px-4 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full md:w-auto h-9 sm:h-10 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white shadow-md shadow-rose-950/35 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-3.5 h-3.5" />
               <span>جدول الأسبوع بالكامل</span>
             </button>
           </div>
@@ -379,7 +387,7 @@ export const MansouraEmergencySchedule: React.FC<MansouraEmergencyScheduleProps>
 
         {/* Expandable Schedule Overlay */}
         {isExpanded && !onOpenFullView && (
-          <div className="mt-4 pt-4 border-t border-rose-900/60">
+          <div className="relative z-10 mt-4 pt-4 border-t border-rose-900/60">
             <FullScheduleGrid
               currentSchedule={currentSchedule}
               cairoDayKey={cairoDayKey}
@@ -391,7 +399,7 @@ export const MansouraEmergencySchedule: React.FC<MansouraEmergencyScheduleProps>
             />
           </div>
         )}
-      </div>
+      </section>
     );
   }
 

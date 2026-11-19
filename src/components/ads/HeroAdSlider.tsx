@@ -165,23 +165,23 @@ export const HeroAdSlider: React.FC = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto shrink-0">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto shrink-0">
             {activeAd.phone && (
               <button
                 onClick={handleCall}
-                className="flex-1 sm:flex-initial min-h-[48px] px-5 py-3 rounded-2xl bg-white text-slate-900 hover:bg-slate-100 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer"
+                className="flex-1 sm:flex-initial h-9 sm:h-10 px-3.5 rounded-xl bg-white text-slate-900 hover:bg-slate-100 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer whitespace-nowrap"
               >
-                <PhoneCall className="w-4 h-4 text-emerald-600" />
-                <span>اتصال: {activeAd.phone}</span>
+                <PhoneCall className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span dir="ltr">{activeAd.phone}</span>
               </button>
             )}
 
             {(activeAd.whatsapp || activeAd.phone) && (
               <button
                 onClick={handleWhatsApp}
-                className="flex-1 sm:flex-initial min-h-[48px] px-5 py-3 rounded-2xl bg-green-500 hover:bg-green-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer"
+                className="flex-1 sm:flex-initial h-9 sm:h-10 px-3.5 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer whitespace-nowrap"
               >
-                <MessageCircle className="w-4 h-4" />
+                <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>واتساب</span>
               </button>
             )}
@@ -189,10 +189,10 @@ export const HeroAdSlider: React.FC = () => {
             {activeAd.linkUrl && (
               <button
                 onClick={handleCta}
-                className="flex-1 sm:flex-initial min-h-[48px] px-4 py-3 rounded-2xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+                className="flex-1 sm:flex-initial h-9 sm:h-10 px-3.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs flex items-center justify-center gap-1 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
               >
                 <span>{activeAd.ctaText || 'تفاصيل العرض'}</span>
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
               </button>
             )}
           </div>
@@ -200,15 +200,15 @@ export const HeroAdSlider: React.FC = () => {
 
         {/* Multi-Ad Pagination Dots & Arrows */}
         {heroAds.length > 1 && (
-          <div className="relative z-10 flex items-center justify-between pt-4 mt-4 border-t border-white/10 text-xs">
-            <div className="flex items-center gap-1.5">
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 pt-3.5 mt-3.5 border-t border-white/10 text-xs">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {heroAds.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setCurrentIndex(i)}
                   className={`h-2 rounded-full transition-all cursor-pointer ${
                     i === currentIndex % heroAds.length
-                      ? 'w-6 bg-white'
+                      ? 'w-5 bg-white'
                       : 'w-2 bg-white/40 hover:bg-white/60'
                   }`}
                   aria-label={`شريحة إعلانية ${i + 1}`}
@@ -216,8 +216,8 @@ export const HeroAdSlider: React.FC = () => {
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-white/70 font-mono">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[11px] text-white/80 font-mono whitespace-nowrap">
                 {currentIndex % heroAds.length + 1} من {heroAds.length}
               </span>
               <button

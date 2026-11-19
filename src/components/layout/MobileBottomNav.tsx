@@ -26,7 +26,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav
       aria-label="التنقل السفلي للهاتف"
-      className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-md rounded-[1.75rem] border border-slate-200/80 bg-white/95 shadow-xl shadow-slate-900/10 backdrop-blur-md transition-colors dark:border-slate-800/80 dark:bg-slate-900/95 dark:shadow-black/50 md:hidden"
+      className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-md rounded-[1.75rem] border border-slate-200/85 bg-white shadow-xl shadow-slate-900/10 transition-colors dark:border-slate-800/85 dark:bg-slate-900 dark:shadow-black/50 md:hidden"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 4px)' }}
     >
       <div className="mx-auto grid h-[72px] max-w-md grid-cols-5 items-center justify-around px-1.5">

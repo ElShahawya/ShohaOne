@@ -450,5 +450,43 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+/* View Transitions API — Circular Theme Ripple (Light <-> Dark) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+.theme-transitioning,
+.theme-transitioning * {
+  transition: background-color 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.22s ease-out !important;
+}
+
+/* Lightweight GPU-only page element reveal */
+@keyframes shahaRevealUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.animate-reveal-up {
+  animation: shahaRevealUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Copyright (c) 2026 MeDoAnDrOiD. All Rights Reserved. */
 

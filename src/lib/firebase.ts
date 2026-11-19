@@ -6,6 +6,9 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut,
   User,
   onAuthStateChanged
@@ -213,6 +216,37 @@ export async function completeGoogleRedirect(): Promise<User | null> {
   }
 }
 
+/**
+ * Sign in with Email and Password.
+ */
+export async function loginWithEmailPassword(email: string, pass: string): Promise<User> {
+  if (!auth) await initFirebaseConfig();
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
+    return cred.user;
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? '';
+    throw new AuthFlowError(getAuthErrorMessage(code), code);
+  }
+}
+
+/**
+ * Register a new user with Email and Password.
+ */
+export async function registerWithEmailPassword(email: string, pass: string, displayName?: string): Promise<User> {
+  if (!auth) await initFirebaseConfig();
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    if (displayName && displayName.trim()) {
+      await updateProfile(cred.user, { displayName: displayName.trim() }).catch(() => {});
+    }
+    return cred.user;
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? '';
+    throw new AuthFlowError(getAuthErrorMessage(code), code);
+  }
+}
+
 export class AuthFlowError extends Error {
   code: string;
   constructor(message: string, code = '') {
@@ -225,12 +259,24 @@ export class AuthFlowError extends Error {
 /** Map Firebase Auth error codes to clear Arabic messages. */
 export function getAuthErrorMessage(code?: string): string {
   switch (code) {
+    case 'auth/email-already-in-use':
+      return 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول بدلاً من ذلك.';
+    case 'auth/invalid-email':
+      return 'صيغة البريد الإلكتروني غير صحيحة. يرجى إدخال بريد صالح.';
+    case 'auth/weak-password':
+      return 'كلمة المرور ضعيفة جداً. يجب أن تحتوي على 6 أحرف على الأقل.';
+    case 'auth/wrong-password':
+      return 'كلمة المرور غير صحيحة. يرجى التأكد وإعادة المحاولة.';
+    case 'auth/user-not-found':
+      return 'لا يوجد حساب مسجل بهذا البريد الإلكتروني. يمكنك إنشاء حساب جديد.';
+    case 'auth/invalid-credential':
+      return 'بيانات الدخول غير صحيحة. يرجى التحقق من البريد وكلمة المرور.';
     case 'auth/popup-blocked':
       return 'منع المتصفح النافذة المنبثقة. سيتم فتح صفحة تسجيل الدخول بدلاً منها.';
     case 'auth/unauthorized-domain':
       return 'هذا النطاق غير مصرّح به لتسجيل الدخول. أضف النطاق في إعدادات Firebase Authentication.';
     case 'auth/operation-not-allowed':
-      return 'تسجيل الدخول بـ Google غير مفعّل حالياً في إعدادات المشروع.';
+      return 'طريقة تسجيل الدخول غير مفعّلة حالياً في إعدادات المشروع.';
     case 'auth/network-request-failed':
       return 'تعذر الاتصال بالإنترنت. تحقق من الشبكة ثم حاول مجدداً.';
     case 'auth/too-many-requests':
