@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ShieldCheck,
   Check,
@@ -92,6 +93,20 @@ export const IconicVerifiedBadge: React.FC<IconicVerifiedBadgeProps> = ({
     setShowDetails(true);
   };
 
+  useEffect(() => {
+    if (!showDetails) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') setShowDetails(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showDetails]);
+
   return (
     <>
       <span
@@ -178,35 +193,39 @@ export const IconicVerifiedBadge: React.FC<IconicVerifiedBadgeProps> = ({
         )}
       </span>
 
-      {/* Interactive Verification Audit Modal */}
-      {showDetails && (
+      {/* Interactive Verification Audit Modal (Portaled to document.body to escape card stacking/overflow) */}
+      {showDetails && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in select-none"
           onClick={() => setShowDetails(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={badge?.nameAr || 'توثيق رسمي معتمد'}
           dir="rtl"
         >
           <div
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 text-right animate-scale-up"
+            className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4 text-right animate-scale-up"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
+            <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0"
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0"
                   style={{
                     background: `linear-gradient(135deg, ${grad.start}, ${grad.end})`,
-                    boxShadow: `0 4px 12px ${grad.shadow}`
+                    boxShadow: `0 6px 16px ${grad.shadow}`
                   }}
                 >
                   <Check className="w-5 h-5 stroke-[3]" />
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                <div className="min-w-0">
+                  <h4 className="text-base font-black text-slate-900 dark:text-white leading-snug">
                     {badge?.nameAr || 'توثيق رسمي معتمد'}
                   </h4>
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block mt-0.5">
-                    علامة توثيق معتمدة في شها ون ✓
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    علامة توثيق معتمدة في شها ون
                   </span>
                 </div>
               </div>
@@ -214,26 +233,27 @@ export const IconicVerifiedBadge: React.FC<IconicVerifiedBadgeProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDetails(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                aria-label="إغلاق"
+                className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center justify-center cursor-pointer transition-colors shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Description */}
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
               {badge?.descriptionAr || 'تم التحقق من صحة ومطابقة بيانات جهة الاتصال والنشاط ميدانياً من قِبل إدارة منصة شها ون.'}
             </p>
 
             {/* Audit Details (Who, When, Why) */}
             {audit && (
-              <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 text-[11px] space-y-2 text-slate-700 dark:text-slate-300">
-                <div className="flex items-center justify-between font-bold text-blue-900 dark:text-blue-300">
+              <div className="p-4 rounded-2xl bg-emerald-50/75 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900/40 text-xs space-y-2.5 text-slate-700 dark:text-slate-300">
+                <div className="flex items-center justify-between gap-2 font-bold text-emerald-900 dark:text-emerald-300">
                   <span className="flex items-center gap-1.5">
-                    <UserCheck className="w-3.5 h-3.5" />
+                    <UserCheck className="w-4 h-4 shrink-0" />
                     <span>جهة الاعتماد:</span>
                   </span>
-                  <span>
+                  <span className="text-left">
                     {audit.grantedBy && !audit.grantedBy.includes('@') && audit.grantedBy !== 'admin'
                       ? audit.grantedBy
                       : 'إدارة منصة شها ون'}
@@ -241,18 +261,18 @@ export const IconicVerifiedBadge: React.FC<IconicVerifiedBadgeProps> = ({
                 </div>
 
                 {audit.grantedAt && (
-                  <div className="flex items-center justify-between text-slate-500">
+                  <div className="flex items-center justify-between gap-2 text-slate-600 dark:text-slate-400">
                     <span className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" />
+                      <Calendar className="w-4 h-4 shrink-0" />
                       <span>تاريخ المنح:</span>
                     </span>
-                    <span className="font-mono">{new Date(audit.grantedAt).toLocaleDateString('ar-EG')}</span>
+                    <span className="font-mono font-semibold">{new Date(audit.grantedAt).toLocaleDateString('ar-EG')}</span>
                   </div>
                 )}
 
                 {audit.reason && (
-                  <div className="pt-1 border-t border-blue-200/50 dark:border-blue-800/50">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 block mb-0.5">سبب الاعتماد:</span>
+                  <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/50">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 block mb-1">سبب الاعتماد:</span>
                     <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{audit.reason}</p>
                   </div>
                 )}
@@ -260,12 +280,12 @@ export const IconicVerifiedBadge: React.FC<IconicVerifiedBadgeProps> = ({
             )}
 
             {/* Trust Policy */}
-            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 space-y-1">
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/80 dark:border-slate-700/70 text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 space-y-1.5">
               <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>سياسة التوثيق الذكي في شها ون:</span>
               </div>
-              <p>
+              <p className="leading-relaxed">
                 لا تُمنح هذه العلامة إلا بعد المراجعة الميدانية والتحقق من صحة المستندات ومزاولة النشاط بقرية شها وموافقة الإدارة.
               </p>
             </div>
@@ -273,12 +293,13 @@ export const IconicVerifiedBadge: React.FC<IconicVerifiedBadgeProps> = ({
             <button
               type="button"
               onClick={() => setShowDetails(false)}
-              className="w-full py-2.5 rounded-2xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold text-xs transition-colors cursor-pointer"
+              className="w-full py-3 rounded-2xl bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer shadow-sm"
             >
               إغلاق
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
