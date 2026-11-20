@@ -705,10 +705,29 @@ async function readJsonBody(request: Request): Promise<Record<string, any> | nul
   }
 }
 
+const WAF_PROBE_PATH_RE = /(\/\.(env|git|svn|htaccess|htpasswd|aws|docker)|\/wp-(admin|login|content|includes)|\/phpmyadmin|\/xmlrpc\.php|\/config\.php|\/admin\.php|\/shell\.php|\.\.[/\\]|<script|%3cscript|union(\s|%20|\+)+select|sleep\(|benchmark\()/i;
+const WAF_SCANNER_UA_RE = /(sqlmap|nikto|nuclei|acunetix|netsparker|dirbuster|gobuster|ffuf|masscan|zgrab|wpscan)/i;
+
+function detectIntrusionProbe(request: Request, url: URL): string | null {
+  const ua = request.headers.get('User-Agent') || '';
+  if (WAF_SCANNER_UA_RE.test(ua)) {
+    return `Scanner UA detected: ${ua.slice(0, 60)}`;
+  }
+  const target = `${url.pathname}${url.search}`;
+  if (WAF_PROBE_PATH_RE.test(target)) {
+    return `Exploit probe path detected: ${target.slice(0, 80)}`;
+  }
+  return null;
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContextLike): Promise<Response> {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: buildSecurityHeaders(request, env) });
+    }
+
+    if (['TRACE', 'TRACK', 'CONNECT'].includes(request.method)) {
+      return jsonResponse(request, env, { error: 'طريقة الطلب غير مسموح بها' }, 405);
     }
 
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) && !isOriginAllowed(request, env)) {
@@ -723,6 +742,29 @@ export default {
     const pathname = url.pathname;
     const ownerEmail = env.OWNER_EMAIL || 'devmedoandroid@gmail.com';
     const ip = getClientIp(request);
+
+    if (ip !== 'unknown') {
+      const activeBan = await env.SHAHA_KV.get(`sec:ban:${ip}`);
+      if (activeBan) {
+        return jsonResponse(request, env, { error: 'تم حظر عنوان الشبكة مؤقتاً بواسطة درع الحماية الأمني.' }, 403);
+      }
+
+      const probeReason = detectIntrusionProbe(request, url);
+      if (probeReason) {
+        ctx.waitUntil(
+          Promise.all([
+            env.SHAHA_KV.put(`sec:ban:${ip}`, probeReason, { expirationTtl: 86400 }),
+            appendAuditLog(env, {
+              action: 'WAF_INTRUSION_BAN',
+              adminUser: 'edge_waf',
+              target: pathname,
+              details: `حظر تلقائي 24 ساعة لعنوان ${ip} — ${probeReason}`
+            })
+          ])
+        );
+        return jsonResponse(request, env, { error: 'تم رصد محاولة فحص غير مصرح بها وحظر الوصول تلقائياً.' }, 403);
+      }
+    }
 
     if (pathname !== '/api/health') {
       const burstLimit = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) ? 60 : 180;

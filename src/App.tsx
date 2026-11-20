@@ -3,6 +3,7 @@ import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { DirectoryProvider, useDirectory } from './context/DirectoryContext';
 import { enableGlobalHorizontalWheelScroll } from './utils/horizontalScroll';
+import { initSecurityShield } from './utils/securityShield';
 import { Header } from './components/layout/Header';
 import { MobileBottomNav } from './components/layout/MobileBottomNav';
 import { Footer } from './components/layout/Footer';
@@ -53,6 +54,10 @@ function DirectoryMain() {
   useEffect(() => {
     const timer = window.setTimeout(() => setSplashTimedOut(true), 900);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    return initSecurityShield();
   }, []);
 
   // Route State synchronized with Browser URL (History API)
