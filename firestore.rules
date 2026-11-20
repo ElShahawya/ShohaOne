@@ -33,7 +33,7 @@ service cloud.firestore {
 
     function isOwner() {
       return isSignedIn() &&
-             request.auth.token.email == 'devmedoandroid@gmail.com' &&
+             request.auth.token.email == 'elshahawyaofficial@gmail.com' &&
              request.auth.token.email_verified == true;
     }
 
