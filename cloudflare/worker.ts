@@ -376,7 +376,7 @@ async function resolveEffectiveAdmin(
   if (revokedBefore > 0 && (!p.iat || p.iat < revokedBefore)) {
     return { valid: false };
   }
-  const rootOwnerEmail = (env.OWNER_EMAIL || 'devmedoandroid@gmail.com').toLowerCase();
+  const rootOwnerEmail = (env.OWNER_EMAIL || 'owner@shohaone.invalid').toLowerCase();
   if (p.role === 'super_admin' || p.email.toLowerCase() === rootOwnerEmail) {
     return { valid: true, payload: p };
   }
@@ -434,7 +434,7 @@ async function verifyFirebaseIdToken(env: Env, idToken?: string): Promise<Verifi
   }>(payloadB64);
 
   if (!header || !payload) return null;
-  const projectId = env.FIREBASE_PROJECT_ID || 'educational-43907';
+  const projectId = env.FIREBASE_PROJECT_ID || 'shoha-one';
   const expectedIssuer = `https://securetoken.google.com/${projectId}`;
   const nowSec = Math.floor(Date.now() / 1000);
 
@@ -507,7 +507,7 @@ function getClientIp(request: Request): string {
 }
 
 function getAllowedOrigins(env: Env): string[] {
-  return (env.ALLOWED_ORIGINS || 'https://shoha-one.netlify.app,http://localhost:3000,http://localhost:5173')
+  return (env.ALLOWED_ORIGINS || 'https://elshahawya.github.io,https://shoha-one.pages.dev,https://shoha-one.netlify.app,http://localhost:3000,http://localhost:5173')
     .split(',')
     .map(o => o.trim())
     .filter(Boolean);
@@ -591,7 +591,7 @@ async function getAuthStore(env: Env): Promise<AdminAuthStore> {
 }
 
 async function getAdminMembers(env: Env): Promise<AdminMemberStore[]> {
-  const ownerEmail = env.OWNER_EMAIL || 'devmedoandroid@gmail.com';
+  const ownerEmail = env.OWNER_EMAIL || 'owner@shohaone.invalid';
   const members = await readKvCached<AdminMemberStore[]>(env.SHAHA_KV, KV_MEMBERS, [], 30_000);
   const idx = members.findIndex(m => m.email.toLowerCase() === ownerEmail.toLowerCase());
   if (idx === -1) {
@@ -611,7 +611,7 @@ async function getAdminMembers(env: Env): Promise<AdminMemberStore[]> {
 }
 
 async function saveAdminMembers(env: Env, members: AdminMemberStore[]): Promise<void> {
-  const ownerEmail = env.OWNER_EMAIL || 'devmedoandroid@gmail.com';
+  const ownerEmail = env.OWNER_EMAIL || 'owner@shohaone.invalid';
   const ownerIdx = members.findIndex(m => m.email.toLowerCase() === ownerEmail.toLowerCase());
   if (ownerIdx === -1) {
     members.unshift({
@@ -740,7 +740,7 @@ export default {
 
     const url = new URL(request.url);
     const pathname = url.pathname;
-    const ownerEmail = env.OWNER_EMAIL || 'devmedoandroid@gmail.com';
+    const ownerEmail = env.OWNER_EMAIL || 'owner@shohaone.invalid';
     const ip = getClientIp(request);
 
     if (ip !== 'unknown') {
@@ -1385,7 +1385,7 @@ export default {
       let texts = await readKvCached<Record<string, string> | null>(env.SHAHA_KV, KV_SITE_TEXTS, null, 60_000);
       if (!texts) {
         try {
-          const projectId = env.FIREBASE_PROJECT_ID || 'educational-43907';
+          const projectId = env.FIREBASE_PROJECT_ID || 'shoha-one';
           const fsRes = await fetch(
             `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/site_settings/texts`
           );

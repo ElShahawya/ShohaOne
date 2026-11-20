@@ -22,7 +22,7 @@ function getClientIp(req: express.Request): string {
 }
 
 // Firebase project used to verify citizen identity tokens server-side.
-let firebaseProjectId = process.env.FIREBASE_PROJECT_ID || 'educational-43907';
+let firebaseProjectId = process.env.FIREBASE_PROJECT_ID || 'shoha-one';
 let firebaseClientId = process.env.FIREBASE_OAUTH_CLIENT_ID || '';
 try {
   const cfgPath = path.join(__dirname, 'firebase-applet-config.json');
@@ -383,7 +383,7 @@ const USERS_FILE = path.join(__dirname, '.users.json');
 const ADMIN_MEMBERS_FILE = path.join(__dirname, '.admin_members.json');
 const LISTINGS_STORE_FILE = path.join(__dirname, '.listings_store.json');
 
-const OWNER_EMAIL = 'devmedoandroid@gmail.com';
+const OWNER_EMAIL = 'owner@shohaone.invalid';
 
 const ALL_PERMISSIONS = [
   'manage_listings',
