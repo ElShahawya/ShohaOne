@@ -403,7 +403,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingAdminMember, setEditingAdminMember] = useState<AdminMember | null>(null);
   const [newAdminName, setNewAdminName] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
-  const [newAdminRole, setNewAdminRole] = useState<'moderator' | 'admin'>('moderator');
+  const [newAdminRole, setNewAdminRole] = useState<'moderator' | 'admin' | 'owner'>('moderator');
   const [newAdminPermissions, setNewAdminPermissions] = useState<AdminPermission[]>([
     'manage_listings',
     'manage_requests'
@@ -713,12 +713,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    const success = await addAdminMember(newAdminEmail.trim(), newAdminName.trim(), newAdminRole, newAdminPermissions);
+    const effectivePerms: AdminPermission[] =
+      newAdminRole === 'owner'
+        ? PERMISSION_CONFIG.map(p => p.id)
+        : newAdminPermissions;
+
+    const success = await addAdminMember(newAdminEmail.trim(), newAdminName.trim(), newAdminRole, effectivePerms);
     if (success) {
-      onSuccessToast(`تم تعيين المشرف ${newAdminName} بنجاح!`);
+      onSuccessToast(
+        newAdminRole === 'owner'
+          ? `تم منح ${newAdminName} كامل صلاحيات المالك بنجاح!`
+          : `تم تعيين المشرف ${newAdminName} بنجاح!`
+      );
       setIsAddAdminModalOpen(false);
       setNewAdminName('');
       setNewAdminEmail('');
+      setNewAdminRole('moderator');
       setNewAdminPermissions(['manage_listings', 'manage_requests']);
       fetchAdminMembers();
     }
@@ -4066,19 +4076,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="grid grid-cols-1 gap-4">
               {adminMembers.map(member => {
                 const isMemberOwner = member.role === 'owner';
+                const isRootOwner = member.id === 'owner_shaha';
                 return (
                   <div
                     key={member.id}
-                    className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-emerald-500/40 transition-colors"
                   >
                     <div>
-                      <div className="flex items-center gap-2.5 mb-1.5">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
                         <span className="text-sm font-black text-slate-900 dark:text-white">
                           {member.name}
                         </span>
-                        {isMemberOwner ? (
-                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black flex items-center gap-1">
-                            <Crown className="w-3 h-3" /> المالك الرئيسي
+                        {isRootOwner ? (
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black flex items-center gap-1 shadow-2xs">
+                            <Crown className="w-3 h-3" /> المالك الرئيسي (محمي)
+                          </span>
+                        ) : isMemberOwner ? (
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black flex items-center gap-1 shadow-2xs">
+                            <Crown className="w-3 h-3" /> مالك مشارك (كامل الصلاحيات)
+                          </span>
+                        ) : member.role === 'admin' ? (
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">
+                            مدير إداري
                           </span>
                         ) : (
                           <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold">
@@ -4105,7 +4124,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               key={p.id}
                               className={`text-[10px] px-2 py-0.5 rounded-lg font-bold transition-colors ${
                                 hasIt
-                                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-800/50'
                                   : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 line-through opacity-40'
                               }`}
                               title={p.desc}
@@ -4119,27 +4138,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800">
-                      {isMemberOwner ? (
+                      {isRootOwner ? (
                         <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-3 py-1.5 rounded-xl border border-amber-200/50">
-                          صلاحيات سيادية كاملة
+                          حساب سيادي محمي
                         </span>
                       ) : (
                         <>
                           <button
                             onClick={() => setEditingAdminMember(member)}
-                            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
                           >
-                            تعديل الصلاحيات
+                            تعديل الدور والصلاحيات
                           </button>
                           <button
                             onClick={async () => {
-                              if (confirm(`هل أنت متأكد من حذف المشرف ${member.name}؟`)) {
+                              if (confirm(`هل أنت متأكد من حذف ${member.name} من فريق الإدارة؟`)) {
                                 const ok = await deleteAdminMember(member.id);
-                                if (ok) onSuccessToast('تم حذف المشرف من النظام بنجاح');
+                                if (ok) onSuccessToast('تم حذف العضو من النظام بنجاح');
                               }
                             }}
                             className="p-2 text-slate-400 hover:text-red-500 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
-                            title="حذف المشرف"
+                            title="حذف العضو"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -4189,6 +4208,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      مستوى الدور والنفوذ *
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewAdminRole('moderator');
+                          setNewAdminPermissions(['manage_listings', 'manage_requests']);
+                        }}
+                        className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                          newAdminRole === 'moderator'
+                            ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 text-blue-800 dark:text-blue-200 ring-2 ring-blue-500/20'
+                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="text-xs font-black">مشرف مفوض</div>
+                        <div className="text-[10px] opacity-75 mt-0.5">صلاحيات مخصصة فقط</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewAdminRole('admin');
+                          setNewAdminPermissions(PERMISSION_CONFIG.filter(p => p.id !== 'manage_admins').map(p => p.id));
+                        }}
+                        className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                          newAdminRole === 'admin'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-800 dark:text-emerald-200 ring-2 ring-emerald-500/20'
+                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="text-xs font-black">مدير إداري</div>
+                        <div className="text-[10px] opacity-75 mt-0.5">إدارة شاملة بدون الإدارة العليا</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewAdminRole('owner');
+                          setNewAdminPermissions(PERMISSION_CONFIG.map(p => p.id));
+                        }}
+                        className={`p-2.5 rounded-xl border text-right transition-all cursor-pointer ${
+                          newAdminRole === 'owner'
+                            ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 text-amber-900 dark:text-amber-200 ring-2 ring-amber-500/25'
+                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="text-xs font-black flex items-center gap-1">
+                          <Crown className="w-3.5 h-3.5 text-amber-500" />
+                          <span>صلاحيات المالك</span>
+                        </div>
+                        <div className="text-[10px] opacity-75 mt-0.5">مالك مشارك بكامل الصلاحيات</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {newAdminRole === 'owner' ? (
+                    <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-bold leading-relaxed flex items-start gap-2">
+                      <Crown className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>
+                        سيحصل هذا الحساب على <strong>كامل صلاحيات المالك</strong> (إدارة الدليل، الصفحات، النصوص، المستخدمين، الأمان وفريق الإشراف)، مع بقاء حسابك الرئيسي محمياً من الحذف أو التعديل.
+                      </span>
+                    </div>
+                  ) : (
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                       قوالب الأدوار الجاهزة (Custom Role Presets):
@@ -4248,6 +4333,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       })}
                     </div>
                   </div>
+                  )}
 
                   <div className="flex gap-2 pt-2">
                     <button
@@ -4293,6 +4379,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                      مستوى الدور والنفوذ:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingAdminMember({ ...editingAdminMember, role: 'moderator' })
+                        }
+                        className={`p-2 rounded-xl border text-right text-xs font-bold cursor-pointer transition-all ${
+                          editingAdminMember.role === 'moderator'
+                            ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 text-blue-800 dark:text-blue-200'
+                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        مشرف مفوض
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingAdminMember({ ...editingAdminMember, role: 'admin' })
+                        }
+                        className={`p-2 rounded-xl border text-right text-xs font-bold cursor-pointer transition-all ${
+                          editingAdminMember.role === 'admin'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 text-emerald-800 dark:text-emerald-200'
+                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        مدير إداري
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingAdminMember({
+                            ...editingAdminMember,
+                            role: 'owner',
+                            permissions: PERMISSION_CONFIG.map(p => p.id)
+                          })
+                        }
+                        className={`p-2 rounded-xl border text-right text-xs font-black flex items-center gap-1 cursor-pointer transition-all ${
+                          editingAdminMember.role === 'owner'
+                            ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 text-amber-900 dark:text-amber-200'
+                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>صلاحيات المالك</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {editingAdminMember.role === 'owner' ? (
+                    <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-bold leading-relaxed flex items-start gap-2">
+                      <Crown className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>
+                        هذا الحساب يمتلك <strong>كامل صلاحيات المالك</strong> لإدارة جميع أقسام المنصة والأمان وفريق الإشراف.
+                      </span>
+                    </div>
+                  ) : (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                       الصلاحيات النشطة:
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1">
@@ -4335,6 +4481,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       })}
                     </div>
                   </div>
+                  )}
 
                   <div className="flex gap-2 pt-2">
                     <button

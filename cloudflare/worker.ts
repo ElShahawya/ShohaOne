@@ -376,7 +376,8 @@ async function resolveEffectiveAdmin(
   if (revokedBefore > 0 && (!p.iat || p.iat < revokedBefore)) {
     return { valid: false };
   }
-  if (p.role === 'owner' || p.role === 'super_admin') {
+  const rootOwnerEmail = (env.OWNER_EMAIL || 'devmedoandroid@gmail.com').toLowerCase();
+  if (p.role === 'super_admin' || p.email.toLowerCase() === rootOwnerEmail) {
     return { valid: true, payload: p };
   }
   const members = await getAdminMembers(env);
@@ -390,7 +391,7 @@ async function resolveEffectiveAdmin(
       ...p,
       role: member.role,
       name: member.name,
-      permissions: member.permissions || []
+      permissions: member.role === 'owner' ? ALL_PERMISSIONS : (member.permissions || [])
     }
   };
 }
@@ -1582,12 +1583,20 @@ export default {
         ? permissions.filter((p): p is string => typeof p === 'string' && ALL_PERMISSIONS.includes(p))
         : ['manage_listings', 'manage_requests'];
 
+      const validRole: AdminMemberStore['role'] =
+        role === 'owner' ? 'owner' : role === 'admin' ? 'admin' : 'moderator';
+
       const newMember: AdminMemberStore = {
         id: `admin_${Date.now()}`,
         email: normalizedEmail,
         name: name.trim().slice(0, 120),
-        role: role === 'admin' ? 'admin' : 'moderator',
-        permissions: filteredPermissions.length > 0 ? filteredPermissions : ['manage_listings'],
+        role: validRole,
+        permissions:
+          validRole === 'owner'
+            ? [...ALL_PERMISSIONS]
+            : filteredPermissions.length > 0
+              ? filteredPermissions
+              : ['manage_listings'],
         isActive: true,
         createdAt: new Date().toISOString()
       };
@@ -1632,8 +1641,10 @@ export default {
 
       const body = (await readJsonBody(request)) || {};
       if (typeof body.name === 'string' && body.name.trim()) member.name = body.name.trim().slice(0, 120);
-      if (body.role === 'admin' || body.role === 'moderator') member.role = body.role;
-      if (Array.isArray(body.permissions)) {
+      if (body.role === 'owner' || body.role === 'admin' || body.role === 'moderator') member.role = body.role;
+      if (member.role === 'owner') {
+        member.permissions = [...ALL_PERMISSIONS];
+      } else if (Array.isArray(body.permissions)) {
         member.permissions = body.permissions.filter(
           (p): p is string => typeof p === 'string' && ALL_PERMISSIONS.includes(p)
         );
