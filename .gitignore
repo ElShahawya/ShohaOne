@@ -74,3 +74,8 @@ ehthumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Agent tooling & skill files (never publish to GitHub)
+.agents/
+AGENT_SKILLS.md
+skills-lock.json

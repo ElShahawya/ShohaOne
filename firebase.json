@@ -4,7 +4,8 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "server.js"
     ],
     "rewrites": [
       {
@@ -33,7 +34,7 @@
     ]
   },
   "firestore": {
-    "database": "ai-studio-shahadirectory-a212d1a4-d3dd-497c-bafc-ceb2a371d505",
+    "database": "(default)",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
