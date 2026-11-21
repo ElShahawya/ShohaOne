@@ -75,8 +75,54 @@ ehthumbs.db
 *.sln
 *.sw?
 
+# Additional secrets & credential files
+.dev.vars
+.dev.vars.*
+.npmrc
+.yarnrc
+.yarnrc.yml
+.netrc
+_netrc
+.envrc
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+secrets.json
+*.secret
+*.secrets
+
+# Local databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Tool caches, test artifacts & backups
+.cache/
+.parcel-cache/
+.turbo/
+.vite/
+.pnpm-store/
+playwright-report/
+blob-report/
+test-results/
+*.tmp
+*.bak
+*.backup
+*.orig
+*.rej
+
 # Agent tooling & skill files (never publish to GitHub)
 .agents/
+.claude/
+.cursor/
+.windsurf/
+.continue/
+.aider*
+.codex/
+.dsh/
 AGENT_SKILLS.md
 skills-lock.json
 
