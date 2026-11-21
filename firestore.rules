@@ -31,10 +31,14 @@ service cloud.firestore {
               incoming()[field] == existing().get(field, 0) + 1);
     }
 
+    function ownerEmail() {
+      return get(/databases/$(database)/documents/config/owner).data.email;
+    }
+
     function isOwner() {
       return isSignedIn() &&
-             request.auth.token.email == 'owner@shohaone.invalid' &&
-             request.auth.token.email_verified == true;
+             request.auth.token.email_verified == true &&
+             request.auth.token.email == ownerEmail();
     }
 
     function isAdmin() {
@@ -165,6 +169,12 @@ service cloud.firestore {
     }
 
     // Collections rules
+
+    // Owner identity lookup is server-side only; clients can never read or
+    // write this document. Rules get() calls are not subject to read rules.
+    match /config/{docId} {
+      allow read, write: if false;
+    }
 
     match /admins/{adminId} {
       allow read: if isOwner() || (isSignedIn() && request.auth.uid == adminId);
@@ -313,6 +323,7 @@ service cloud.firestore {
         incoming().get('votedUsers', []) is list &&
         incoming().get('votedUsers', []).hasAll(existing().get('votedUsers', [])) &&
         incoming().get('votedUsers', []).hasAll([request.auth.uid]) &&
+        incoming().get('votedUsers', []).removeAll(existing().get('votedUsers', [])).hasOnly([request.auth.uid]) &&
         incoming().get('votedUsers', []).size() == existing().get('votedUsers', []).size() + 1 &&
         incoming().upvotes is number &&
         incoming().upvotes == existing().get('upvotes', 0) + 1

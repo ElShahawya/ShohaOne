@@ -383,7 +383,11 @@ const USERS_FILE = path.join(__dirname, '.users.json');
 const ADMIN_MEMBERS_FILE = path.join(__dirname, '.admin_members.json');
 const LISTINGS_STORE_FILE = path.join(__dirname, '.listings_store.json');
 
-const OWNER_EMAIL = 'owner@shohaone.invalid';
+const OWNER_EMAIL = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
+if (isProd && !OWNER_EMAIL) {
+  console.error('OWNER_EMAIL is required in production. Refusing to start.');
+  process.exit(1);
+}
 
 const ALL_PERMISSIONS = [
   'manage_listings',

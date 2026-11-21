@@ -376,7 +376,7 @@ async function resolveEffectiveAdmin(
   if (revokedBefore > 0 && (!p.iat || p.iat < revokedBefore)) {
     return { valid: false };
   }
-  const rootOwnerEmail = (env.OWNER_EMAIL || 'owner@shohaone.invalid').toLowerCase();
+  const rootOwnerEmail = (env.OWNER_EMAIL || '').toLowerCase();
   if (p.role === 'super_admin' || p.email.toLowerCase() === rootOwnerEmail) {
     return { valid: true, payload: p };
   }
@@ -560,6 +560,50 @@ function jsonResponse(request: Request, env: Env, data: unknown, status = 200): 
   });
 }
 
+const KV_ENCRYPTION_PREFIX = 'enc:v1:';
+
+async function deriveKvEncryptionKey(secret: string): Promise<CryptoKey> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+  return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+function createEncryptedKv(kv: KVNamespaceLike, secret: string): KVNamespaceLike {
+  let keyPromise: Promise<CryptoKey> | null = null;
+  const getKey = () => {
+    if (!keyPromise) keyPromise = deriveKvEncryptionKey(secret);
+    return keyPromise;
+  };
+
+  return {
+    async get(key: string): Promise<string | null> {
+      const raw = await kv.get(key);
+      if (!raw) return null;
+      if (!raw.startsWith(KV_ENCRYPTION_PREFIX)) return raw;
+      try {
+        const packed = fromBase64Url(raw.slice(KV_ENCRYPTION_PREFIX.length));
+        const iv = packed.slice(0, 12);
+        const ciphertext = packed.slice(12);
+        const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, await getKey(), ciphertext);
+        return new TextDecoder().decode(plain);
+      } catch {
+        return null;
+      }
+    },
+    async put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void> {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        await getKey(),
+        new TextEncoder().encode(value)
+      );
+      const packed = new Uint8Array(iv.length + ciphertext.byteLength);
+      packed.set(iv, 0);
+      packed.set(new Uint8Array(ciphertext), iv.length);
+      await kv.put(key, KV_ENCRYPTION_PREFIX + toBase64Url(packed), options);
+    }
+  };
+}
+
 async function readKvJson<T>(kv: KVNamespaceLike, key: string, fallback: T): Promise<T> {
   try {
     const raw = await kv.get(key);
@@ -591,7 +635,7 @@ async function getAuthStore(env: Env): Promise<AdminAuthStore> {
 }
 
 async function getAdminMembers(env: Env): Promise<AdminMemberStore[]> {
-  const ownerEmail = env.OWNER_EMAIL || 'owner@shohaone.invalid';
+  const ownerEmail = env.OWNER_EMAIL || '';
   const members = await readKvCached<AdminMemberStore[]>(env.SHAHA_KV, KV_MEMBERS, [], 30_000);
   const idx = members.findIndex(m => m.email.toLowerCase() === ownerEmail.toLowerCase());
   if (idx === -1) {
@@ -611,7 +655,7 @@ async function getAdminMembers(env: Env): Promise<AdminMemberStore[]> {
 }
 
 async function saveAdminMembers(env: Env, members: AdminMemberStore[]): Promise<void> {
-  const ownerEmail = env.OWNER_EMAIL || 'owner@shohaone.invalid';
+  const ownerEmail = env.OWNER_EMAIL || '';
   const ownerIdx = members.findIndex(m => m.email.toLowerCase() === ownerEmail.toLowerCase());
   if (ownerIdx === -1) {
     members.unshift({
@@ -734,13 +778,23 @@ export default {
       return jsonResponse(request, env, { error: 'طلب غير مصرح به من مصدر خارجي' }, 403);
     }
 
-    if (!env.SESSION_SECRET || !env.ENCRYPTION_MASTER_KEY) {
+    if (
+      !env.SESSION_SECRET ||
+      env.SESSION_SECRET.length < 32 ||
+      !env.ENCRYPTION_MASTER_KEY ||
+      env.ENCRYPTION_MASTER_KEY.length < 32 ||
+      !env.OWNER_EMAIL
+    ) {
       return jsonResponse(request, env, { error: 'إعدادات الأمان غير مكتملة على الخادم' }, 500);
     }
 
+    // Transparent AES-GCM envelope encryption for every KV value.
+    // Legacy plaintext values remain readable, new writes are always encrypted.
+    env = { ...env, SHAHA_KV: createEncryptedKv(env.SHAHA_KV, env.ENCRYPTION_MASTER_KEY) };
+
     const url = new URL(request.url);
     const pathname = url.pathname;
-    const ownerEmail = env.OWNER_EMAIL || 'owner@shohaone.invalid';
+    const ownerEmail = env.OWNER_EMAIL || '';
     const ip = getClientIp(request);
 
     if (ip !== 'unknown') {
@@ -1775,6 +1829,8 @@ export default {
         encryption: {
           passwordHashing: 'PBKDF2-SHA512 (100,000 iterations)',
           sessionTokens: 'HMAC-SHA256 Signed + Live RBAC Verification',
+          kvEncryption: 'AES-GCM 256-bit envelope encryption per KV value',
+          dataAtRest: 'Firestore: Google-managed encryption; KV: AES-GCM 256-bit',
           secretsVault: env.SHAHA_KEYS_VAULT ? 'Cloudflare Encrypted Secrets + KV Active' : 'Cloudflare Secrets Active'
         },
         rateLimiting: {
