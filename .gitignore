@@ -79,3 +79,7 @@ ehthumbs.db
 .agents/
 AGENT_SKILLS.md
 skills-lock.json
+
+# GitHub profile README only - all other Markdown stays local
+*.md
+!README.md
